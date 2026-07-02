@@ -26,6 +26,22 @@ export interface Session {
   close(): void
 }
 
+/* Storage access that survives environments without Web Storage (tests, SSR). */
+function ls(): Storage | null {
+  try {
+    return localStorage
+  } catch {
+    return null
+  }
+}
+function ss(): Storage | null {
+  try {
+    return sessionStorage
+  } catch {
+    return null
+  }
+}
+
 // ---------------- host ----------------
 
 interface Roster {
@@ -34,25 +50,36 @@ interface Roster {
   names: string[]
 }
 
-interface HostSave {
+export interface HostSave {
   code: string
   roster: Roster
   state: GameState | null
+  savedAt?: number
 }
 
 const HOST_SAVE_KEY = 'samurai-sword-host'
+/** a room older than this is not worth auto-resuming */
+const HOST_SAVE_TTL = 12 * 60 * 60 * 1000
+/** pre-game: how long a silently vanished guest keeps their seat */
+const LOBBY_DISCONNECT_GRACE = 8000
 
 export function loadHostSave(): HostSave | null {
   try {
-    const raw = localStorage.getItem(HOST_SAVE_KEY)
-    return raw ? (JSON.parse(raw) as HostSave) : null
+    const raw = ls()?.getItem(HOST_SAVE_KEY)
+    if (!raw) return null
+    const save = JSON.parse(raw) as HostSave
+    if (save.savedAt && Date.now() - save.savedAt > HOST_SAVE_TTL) {
+      clearHostSave()
+      return null
+    }
+    return save
   } catch {
     return null
   }
 }
 
 export function clearHostSave() {
-  localStorage.removeItem(HOST_SAVE_KEY)
+  ls()?.removeItem(HOST_SAVE_KEY)
 }
 
 export class HostSession implements Session {
@@ -66,6 +93,8 @@ export class HostSession implements Session {
   private events: SessionEvents
   private hostName: string
   private closed = false
+  /** token → pending pre-game removal timer */
+  private evictions = new Map<string, ReturnType<typeof setTimeout>>()
 
   private idRetries = 0
 
@@ -118,9 +147,14 @@ export class HostSession implements Session {
   }
 
   private save() {
-    const save: HostSave = { code: this.code, roster: this.roster, state: this.state }
+    const save: HostSave = {
+      code: this.code,
+      roster: this.roster,
+      state: this.state,
+      savedAt: Date.now(),
+    }
     try {
-      localStorage.setItem(HOST_SAVE_KEY, JSON.stringify(save))
+      ls()?.setItem(HOST_SAVE_KEY, JSON.stringify(save))
     } catch { /* full/blocked storage is non-fatal */ }
   }
 
@@ -129,14 +163,9 @@ export class HostSession implements Session {
       const msg = data as GuestMsg
       if (msg.t === 'hello') this.handleHello(conn, msg)
       else if (msg.t === 'intent') this.handleIntent(conn, msg.intent)
+      else if (msg.t === 'leave') this.handleLeave(conn)
     })
-    conn.on('close', () => {
-      const seat = this.conns.indexOf(conn)
-      if (seat > 0) {
-        this.conns[seat] = null
-        this.pushLobby()
-      }
-    })
+    conn.on('close', () => this.handleDisconnect(conn))
   }
 
   private handleHello(conn: DataConnection, msg: { name: string; token: string }) {
@@ -156,11 +185,64 @@ export class HostSession implements Session {
       this.conns.push(null)
     }
     // A known token keeps its original name — a rejoin never renames the seat.
+    const pending = this.evictions.get(msg.token)
+    if (pending) {
+      clearTimeout(pending)
+      this.evictions.delete(msg.token)
+    }
     this.conns[seat]?.close()
     this.conns[seat] = conn
     this.save()
     this.pushLobby()
     if (this.state) this.sendView(seat)
+  }
+
+  /** Deliberate departure. Pre-game the seat is freed; mid-game it just goes offline. */
+  private handleLeave(conn: DataConnection) {
+    const seat = this.conns.indexOf(conn)
+    if (seat <= 0) return
+    this.conns[seat] = null
+    if (!this.state) this.dropSeat(seat)
+    this.pushLobby()
+  }
+
+  /** Connection died without a leave — reload, sleep, crash, or a real exit. */
+  private handleDisconnect(conn: DataConnection) {
+    const seat = this.conns.indexOf(conn)
+    if (seat <= 0) return
+    this.conns[seat] = null
+    this.pushLobby()
+    if (this.state) return // in-game seats survive; the token can always rejoin
+    // pre-game: give reloads a grace window, then free the seat
+    const token = this.roster.tokens[seat]
+    const pending = this.evictions.get(token)
+    if (pending) clearTimeout(pending)
+    this.evictions.set(
+      token,
+      setTimeout(() => {
+        this.evictions.delete(token)
+        if (this.closed || this.state) return
+        const s = this.roster.tokens.indexOf(token)
+        if (s > 0 && !this.conns[s]) {
+          this.dropSeat(s)
+          this.pushLobby()
+        }
+      }, LOBBY_DISCONNECT_GRACE),
+    )
+  }
+
+  /** Remove a pre-game seat entirely; later seats shift down (lobby pushes re-tell everyone their seat). */
+  private dropSeat(seat: number) {
+    const token = this.roster.tokens[seat]
+    const pending = this.evictions.get(token)
+    if (pending) {
+      clearTimeout(pending)
+      this.evictions.delete(token)
+    }
+    this.roster.tokens.splice(seat, 1)
+    this.roster.names.splice(seat, 1)
+    this.conns.splice(seat, 1)
+    this.save()
   }
 
   private handleIntent(conn: DataConnection, intent: Intent) {
@@ -194,8 +276,17 @@ export class HostSession implements Session {
 
   startGame() {
     if (this.state) return
+    // ghosts — joined then vanished pre-game — must not be dealt into the game
+    let dropped = false
+    for (let seat = this.roster.tokens.length - 1; seat > 0; seat--) {
+      if (!this.conns[seat]) {
+        this.dropSeat(seat)
+        dropped = true
+      }
+    }
+    if (dropped) this.pushLobby()
     if (this.roster.names.length < 3) {
-      this.events.onError('Samurai Sword needs at least 3 players.')
+      this.events.onError('Samurai Sword needs at least 3 players (connected).')
       return
     }
     this.state = createGame({
@@ -241,6 +332,15 @@ export class HostSession implements Session {
 
   close() {
     this.closed = true
+    this.evictions.forEach((t) => clearTimeout(t))
+    this.evictions.clear()
+    // tell everyone right away instead of letting them time out
+    const closedMsg = { t: 'closed', reason: 'The host closed the room.' } satisfies HostMsg
+    this.conns.forEach((c) => {
+      try {
+        c?.send(closedMsg)
+      } catch { /* already gone */ }
+    })
     this.peer.destroy()
   }
 }
@@ -248,6 +348,21 @@ export class HostSession implements Session {
 // ---------------- guest ----------------
 
 const guestKey = (code: string) => `samurai-sword-guest-${code.toUpperCase()}`
+const GUEST_ROOM_KEY = 'samurai-sword-guest-room'
+
+/** The room this tab is (or was) sitting in — lets a reload rejoin automatically. */
+export function loadGuestRoom(): { code: string; name: string } | null {
+  try {
+    const raw = ss()?.getItem(GUEST_ROOM_KEY)
+    return raw ? (JSON.parse(raw) as { code: string; name: string }) : null
+  } catch {
+    return null
+  }
+}
+
+export function clearGuestRoom() {
+  ss()?.removeItem(GUEST_ROOM_KEY)
+}
 
 export class GuestSession implements Session {
   readonly code: string
@@ -266,9 +381,10 @@ export class GuestSession implements Session {
     this.events = events
     // sessionStorage: per-tab, so several guests can play from one browser;
     // still survives a reload of that tab (seat is reclaimed via the token).
-    const saved = sessionStorage.getItem(guestKey(this.code))
+    const saved = ss()?.getItem(guestKey(this.code))
     this.token = saved ?? newToken()
-    sessionStorage.setItem(guestKey(this.code), this.token)
+    ss()?.setItem(guestKey(this.code), this.token)
+    ss()?.setItem(GUEST_ROOM_KEY, JSON.stringify({ code: this.code, name }))
 
     this.peer = new Peer()
     this.peer.on('open', () => this.connect())
@@ -276,7 +392,7 @@ export class GuestSession implements Session {
       if (this.closed) return
       if (err.type === 'peer-unavailable') {
         if (this.retries === 0) {
-          this.events.onDead('Room not found. Check the code — and that the host has the game open.')
+          this.die('Room not found. Check the code — and that the host has the game open.')
         } else {
           this.scheduleReconnect()
         }
@@ -284,6 +400,13 @@ export class GuestSession implements Session {
         this.events.onError(`Network: ${err.type ?? err.message}`)
       }
     })
+  }
+
+  private die(reason: string) {
+    this.closed = true
+    clearGuestRoom()
+    this.events.onDead(reason)
+    this.peer.destroy()
   }
 
   private connect() {
@@ -309,9 +432,10 @@ export class GuestSession implements Session {
           this.events.onError(msg.message)
           break
         case 'rejected':
-          this.closed = true
-          this.events.onDead(msg.reason)
-          this.peer.destroy()
+          this.die(msg.reason)
+          break
+        case 'closed':
+          this.die(msg.reason)
           break
       }
     })
@@ -322,7 +446,7 @@ export class GuestSession implements Session {
     if (this.closed) return
     this.retries++
     if (this.retries > 40) {
-      this.events.onDead('Lost connection to the host.')
+      this.die('Lost connection to the host.')
       return
     }
     setTimeout(() => this.connect(), 2000)
@@ -334,6 +458,11 @@ export class GuestSession implements Session {
 
   close() {
     this.closed = true
+    clearGuestRoom()
+    // deliberate exit — free the seat instead of ghosting in the lobby
+    try {
+      this.conn?.send({ t: 'leave' } satisfies GuestMsg)
+    } catch { /* already gone */ }
     this.peer.destroy()
   }
 }

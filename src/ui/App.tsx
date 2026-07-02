@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PlayerView } from '../engine/types'
-import { clearHostSave, GuestSession, HostSession, loadHostSave, Session } from '../net/session'
+import {
+  clearGuestRoom,
+  clearHostSave,
+  GuestSession,
+  HostSession,
+  loadGuestRoom,
+  loadHostSave,
+  Session,
+} from '../net/session'
 import type { LobbyPlayer } from '../net/protocol'
 import { GameScreen } from './GameScreen'
+import { sound } from './sound'
 
 type Screen =
   | { s: 'home' }
@@ -19,6 +28,7 @@ export function App() {
   const [joinCode, setJoinCode] = useState(
     () => new URLSearchParams(location.search).get('join')?.toUpperCase() ?? '',
   )
+  const [soundOn, setSoundOn] = useState(() => sound.isEnabled())
   const sessionRef = useRef<Session | null>(null)
   const hostSave = loadHostSave()
 
@@ -28,6 +38,48 @@ export function App() {
       return () => clearTimeout(t)
     }
   }, [error])
+
+  // audio unlocks on the first gesture (browser autoplay policy); every button clicks
+  useEffect(() => {
+    const unlock = () => sound.unlock()
+    const click = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest?.('.btn')) sound.uiClick()
+    }
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('click', click)
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('click', click)
+    }
+  }, [])
+
+  // a warrior joins the lobby → koto ding
+  const lobbyCount = screen.s === 'lobby' ? screen.players.length : 0
+  const prevLobbyCount = useRef(0)
+  useEffect(() => {
+    if (lobbyCount > prevLobbyCount.current && prevLobbyCount.current > 0) sound.playerJoin()
+    prevLobbyCount.current = lobbyCount
+  }, [lobbyCount])
+
+  // a reload should land you back where you were, not on the menu:
+  // hosts reclaim their room, guests rejoin theirs (their seat token is per-tab)
+  useEffect(() => {
+    if (sessionRef.current) return
+    if (loadHostSave()) {
+      resumeRoom()
+      return
+    }
+    const room = loadGuestRoom()
+    const invited = new URLSearchParams(location.search).get('join')?.toUpperCase()
+    // a fresh invite link to a DIFFERENT room wins over the remembered one
+    if (room?.name && (!invited || invited === room.code)) {
+      setDead(null)
+      const session = new GuestSession(room.code, room.name, events())
+      sessionRef.current = session
+      setScreen({ s: 'connecting', code: session.code })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function events() {
     return {
@@ -80,6 +132,9 @@ export function App() {
   }
 
   function leave() {
+    // a deliberate exit from the lobby/game closes the room for good; cancelling
+    // a connection attempt keeps the save so a reload can still resume it
+    if (sessionRef.current instanceof HostSession && screen.s !== 'connecting') clearHostSave()
     sessionRef.current?.close()
     sessionRef.current = null
     setView(null)
@@ -92,6 +147,18 @@ export function App() {
   return (
     <div className="app">
       <SceneBackdrop />
+      <button
+        className={`sound-toggle ${soundOn ? '' : 'sound-toggle-muted'}`}
+        onClick={() => {
+          const next = !soundOn
+          setSoundOn(next)
+          sound.setEnabled(next)
+        }}
+        title={soundOn ? 'Mute sound' : 'Unmute sound'}
+        aria-label={soundOn ? 'Mute sound' : 'Unmute sound'}
+      >
+        音
+      </button>
       {error && <div className="toast toast-error">{error}</div>}
 
       {dead && (
@@ -143,9 +210,10 @@ export function App() {
                 </div>
               </div>
             </div>
-            {hostSave?.state && (
+            {hostSave && (
               <button className="btn btn-ghost" onClick={resumeRoom}>
-                ⟲ Resume hosting room {hostSave.code} (game in progress)
+                ⟲ Resume hosting room {hostSave.code}
+                {hostSave.state ? ' (game in progress)' : ''}
               </button>
             )}
           </div>
@@ -178,6 +246,7 @@ export function App() {
                 copy link
               </button>
             </div>
+            <JoinQr code={screen.code} />
             <span className="home-label">Warriors {screen.players.length}/7</span>
             <ul className="lobby-slots">
               {Array.from({ length: 7 }, (_, i) => {
@@ -223,6 +292,37 @@ export function App() {
       {screen.s === 'game' && view && session && (
         <GameScreen view={view} session={session} onLeave={leave} />
       )}
+    </div>
+  )
+}
+
+/** QR for the invite link — phones scan it straight into the room. */
+function JoinQr(props: { code: string }) {
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    const url = `${location.origin}${location.pathname}?join=${props.code}`
+    import('qrcode')
+      .then((m) =>
+        m.toDataURL(url, {
+          margin: 1,
+          width: 264,
+          color: { dark: '#211c16', light: '#f2e8cf' },
+        }),
+      )
+      .then((data) => {
+        if (alive) setSrc(data)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [props.code])
+  if (!src) return null
+  return (
+    <div className="lobby-qr">
+      <img src={src} alt={`QR code to join room ${props.code}`} width={132} height={132} />
+      <span className="lobby-qr-hint">scan to join</span>
     </div>
   )
 }

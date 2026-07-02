@@ -10,12 +10,14 @@ export interface LobbyPlayer {
 export type GuestMsg =
   | { t: 'hello'; name: string; token: string }
   | { t: 'intent'; intent: Intent }
+  | { t: 'leave' }
 
 export type HostMsg =
   | { t: 'lobby'; players: LobbyPlayer[]; yourSeat: number; code: string }
   | { t: 'view'; view: PlayerView }
   | { t: 'error'; message: string }
   | { t: 'rejected'; reason: string }
+  | { t: 'closed'; reason: string }
 
 export const PEER_PREFIX = 'samurai-sword-v1-'
 

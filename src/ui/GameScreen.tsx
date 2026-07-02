@@ -4,6 +4,7 @@ import type { Card, Pending, PlayerView, PublicPlayer } from '../engine/types'
 import type { Session } from '../net/session'
 import { CardBack, CardFace, CharacterPlate, Tokens } from './Cards'
 import { cardAction, ROLE_INFO, TEAM_LABEL, viewAttackDifficulty, type TargetMode } from './helpers'
+import { sound } from './sound'
 
 export function GameScreen(props: { view: PlayerView; session: Session; onLeave: () => void }) {
   const { view, session } = props
@@ -14,16 +15,38 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   const [impact, setImpact] = useState<{ seat: number; n: number } | null>(null)
   const prevView = useRef(view)
 
-  // detect wounds between view updates → impact flash + table shake
+  // detect wounds between view updates → impact flash + table shake + sound cues
   useEffect(() => {
     const prev = prevView.current
     prevView.current = view
     if (prev === view) return
+    const mine = view.players[view.seat]
+    const mineBefore = prev.players[view.seat]
+    if (mineBefore && mine.handCount > mineBefore.handCount) sound.draw()
+    if (view.players.some((p) => prev.players[p.seat] && p.honor < prev.players[p.seat].honor))
+      sound.honorLost()
+    if (
+      view.players.some(
+        (p) => prev.players[p.seat] && p.resilience === 0 && prev.players[p.seat].resilience > 0,
+      )
+    )
+      sound.defeat()
+    if (view.prompt && !prev.prompt) sound.alert()
+    if (view.phase === 'play' && view.turnSeat === view.seat && prev.turnSeat !== view.seat)
+      sound.yourTurn()
+    if (view.result && !prev.result) sound.victory()
+    for (let i = prev.log.length; i < view.log.length; i++) {
+      if (/parr/i.test(view.log[i].text)) {
+        sound.parry()
+        break
+      }
+    }
     const hit = view.players.find((p) => {
       const before = prev.players[p.seat]
       return before && p.resilience < before.resilience
     })
     if (hit) {
+      sound.wound()
       setImpact((old) => ({ seat: hit.seat, n: (old?.n ?? 0) + 1 }))
       const t = setTimeout(() => setImpact(null), 600)
       return () => clearTimeout(t)
@@ -58,12 +81,16 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
     const action = cardAction(view, card)
     if ('blocked' in action) setBlocked(action.blocked)
     else if ('play' in action) {
+      sound.cardPlay()
       session.sendIntent(
         CARD_DEFS[card.kind].type === 'property'
           ? { t: 'playProperty', card: card.id }
           : { t: 'playAction', card: card.id },
       )
-    } else setTargetMode(action.target)
+    } else {
+      sound.uiClick()
+      setTargetMode(action.target)
+    }
     setGeishaSeat(null)
   }
 
@@ -84,13 +111,16 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
     const card = targetMode.card.id
     switch (targetMode.kind) {
       case 'weapon':
+        sound.attack()
         session.sendIntent({ t: 'playWeapon', card, target: seat })
         break
       case 'diversion':
       case 'breathing':
+        sound.cardPlay()
         session.sendIntent({ t: 'playAction', card, target: seat })
         break
       case 'bushido':
+        sound.cardPlay()
         session.sendIntent({ t: 'playProperty', card, target: seat })
         break
       case 'geisha':
