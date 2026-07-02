@@ -502,7 +502,7 @@ body {
 }
 
 .pile { position: relative; }
-.pile > .card { box-shadow: var(--shadow-contact), var(--shadow-soft); }
+.pile > .card { box-shadow: var(--shadow-contact), var(--shadow-soft); z-index: 2; }
 
 /* elliptical contact shadow grounding the pile on the tatami */
 .pile-shadow {
