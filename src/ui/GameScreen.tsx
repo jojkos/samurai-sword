@@ -101,18 +101,21 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   }
 
   const seatCount = view.playerCount
+  const narrow = useNarrowViewport()
   const positions = useMemo(() => {
+    // narrow screens pull the ring inward so edge seats stay on-screen
+    const radiusX = narrow ? 36 : 41
     return view.players.map((p) => {
       const rel = (p.seat - view.seat + seatCount) % seatCount
       const angle = Math.PI / 2 + (rel * 2 * Math.PI) / seatCount
       // your own seat sits a touch higher so the hand fan never covers it
       const radiusY = rel === 0 ? 33 : 38
       return {
-        left: 50 + 41 * Math.cos(angle),
+        left: 50 + radiusX * Math.cos(angle),
         top: 50 + radiusY * Math.sin(angle),
       }
     })
-  }, [view.seat, seatCount, view.players])
+  }, [view.seat, seatCount, view.players, narrow])
 
   const playedProperty = (card: Card) => {
     if (!myTurn) return
@@ -217,6 +220,20 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
       {view.result && <ResultOverlay view={view} session={session} onLeave={props.onLeave} />}
     </div>
   )
+}
+
+/** True below the phone breakpoint; SSR-safe (no matchMedia in node → false). */
+function useNarrowViewport() {
+  const [narrow, setNarrow] = useState(
+    () => typeof matchMedia !== 'undefined' && matchMedia('(max-width: 640px)').matches,
+  )
+  useEffect(() => {
+    const mq = matchMedia('(max-width: 640px)')
+    const onChange = () => setNarrow(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return narrow
 }
 
 // ---------------- ambient embers ----------------
