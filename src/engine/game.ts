@@ -8,6 +8,10 @@ import type {
 
 export class RuleError extends Error {}
 
+function gameEnded(state: GameState): boolean {
+  return (state.phase as string) === 'ended'
+}
+
 function fail(msg: string): never {
   throw new RuleError(msg)
 }
@@ -171,11 +175,11 @@ function draw(state: GameState, seat: number, n: number) {
   const p = player(state, seat)
   let drawn = 0
   for (let i = 0; i < n; i++) {
-    if (state.phase === 'ended') return
+    if (gameEnded(state)) return
     if (state.deck.length === 0) {
       if (state.discard.length === 0) break // nothing left anywhere
       reshuffle(state)
-      if (state.phase === 'ended') return
+      if (gameEnded(state)) return
     }
     p.hand.push(state.deck.shift()!)
     drawn++
@@ -188,7 +192,7 @@ function flipTop(state: GameState): Card | null {
   if (state.deck.length === 0) {
     if (state.discard.length === 0) return null
     reshuffle(state)
-    if (state.phase === 'ended') return null
+    if (gameEnded(state)) return null
   }
   const card = state.deck.shift()!
   state.discard.push(card)
@@ -206,7 +210,7 @@ function sameTeam(a: PlayerState, b: PlayerState): boolean {
 }
 
 function checkHonorEnd(state: GameState, friendlyTeam: Team | null = null): boolean {
-  if (state.phase === 'ended') return true
+  if (gameEnded(state)) return true
   if (state.players.some((p) => p.honor === 0)) {
     state.friendlyEndTeam = friendlyTeam
     endScored(state)
@@ -232,7 +236,7 @@ function applyWounds(
 
   if (viaWeapon && target.character === 'ushiwaka') {
     draw(state, targetSeat, applied)
-    if (state.phase === 'ended') return applied
+    if (gameEnded(state)) return applied
   }
 
   if (target.resilience === 0) {
@@ -343,7 +347,7 @@ function performDraws(state: GameState, firstFromDiscard: boolean) {
 }
 
 function startNextTurn(state: GameState) {
-  if (state.phase === 'ended') return
+  if (gameEnded(state)) return
   state.turnSeat = (state.turnSeat + 1) % state.playerCount
   state.turnCount++
   state.weaponsPlayed = 0
@@ -360,7 +364,7 @@ function startNextTurn(state: GameState) {
   const bushido = p.properties.find((c) => c.kind === 'bushido')
   if (bushido) {
     const flipped = flipTop(state)
-    if (state.phase === 'ended') return
+    if (gameEnded(state)) return
     if (flipped && cardDef(flipped).type === 'weapon') {
       log(state, `Bushido reveals ${cardDef(flipped).name} — a Weapon! ${p.name} must choose.`)
       if (p.hand.some((c) => cardDef(c).type === 'weapon')) {
@@ -369,7 +373,7 @@ function startNextTurn(state: GameState) {
       }
       // No weapon in hand: forced.
       resolveBushidoHonorLoss(state, p)
-      if (state.phase === 'ended') return
+      if (gameEnded(state)) return
     } else if (flipped) {
       log(state, `Bushido reveals ${cardDef(flipped).name} — Bushido passes on.`)
       passBushido(state, p)
@@ -433,7 +437,7 @@ function advanceForced(state: GameState) {
     if (forcedAnswerable(state.players[seat], pending.kind)) return
     pending.queue.shift()
     applyWounds(state, seat, 1, pending.sourceSeat, false)
-    if (state.phase === 'ended') return
+    if (gameEnded(state)) return
   }
 }
 
@@ -449,7 +453,7 @@ function forcedAnswerable(p: PlayerState, kind: 'battlecry' | 'jiujitsu'): boole
 
 export function applyIntent(prev: GameState, seat: number, intent: Intent): GameState {
   const state = structuredClone(prev)
-  if (state.phase === 'ended') fail('The game is over')
+  if (gameEnded(state)) fail('The game is over')
 
   const pending = state.pending
   if (pending) {
@@ -538,7 +542,7 @@ function applyResponse(state: GameState, seat: number, intent: Intent, pending: 
       } else {
         pending.queue.shift()
         applyWounds(state, seat, 1, pending.sourceSeat, false)
-        if (state.phase === 'ended') return
+        if (gameEnded(state)) return
       }
       advanceForced(state)
       break
@@ -554,7 +558,7 @@ function applyResponse(state: GameState, seat: number, intent: Intent, pending: 
         passBushido(state, p)
       } else {
         resolveBushidoHonorLoss(state, p)
-        if (state.phase === 'ended') return
+        if (gameEnded(state)) return
       }
       state.pending = null
       beginDrawPhase(state)
