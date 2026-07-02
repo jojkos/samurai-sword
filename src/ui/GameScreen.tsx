@@ -11,6 +11,24 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   const [geishaSeat, setGeishaSeat] = useState<number | null>(null)
   const [showRole, setShowRole] = useState(false)
   const [blocked, setBlocked] = useState<string | null>(null)
+  const [impact, setImpact] = useState<{ seat: number; n: number } | null>(null)
+  const prevView = useRef(view)
+
+  // detect wounds between view updates → impact flash + table shake
+  useEffect(() => {
+    const prev = prevView.current
+    prevView.current = view
+    if (prev === view) return
+    const hit = view.players.find((p) => {
+      const before = prev.players[p.seat]
+      return before && p.resilience < before.resilience
+    })
+    if (hit) {
+      setImpact((old) => ({ seat: hit.seat, n: (old?.n ?? 0) + 1 }))
+      const t = setTimeout(() => setImpact(null), 600)
+      return () => clearTimeout(t)
+    }
+  }, [view])
 
   const me = view.players[view.seat]
   const myTurn =
@@ -89,8 +107,10 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
 
   return (
     <div className="game">
-      <div className="table-scene">
+      <Embers />
+      <div className={`table-scene ${impact ? 'shake' : ''}`}>
         <div className="table">
+          <div className="table-inner" />
           <div className="table-center">
             <div className="pile">
               <CardBack size="mini" />
@@ -111,6 +131,7 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
               isYou={p.seat === view.seat}
               isTurn={view.turnSeat === p.seat && view.phase === 'play'}
               targetable={!!targetMode?.targets.includes(p.seat)}
+              hit={impact?.seat === p.seat ? impact.n : 0}
               waiting={view.waitingFor === p.seat}
               difficulty={
                 targetMode?.kind === 'weapon' && p.seat !== view.seat && !p.harmless
@@ -168,6 +189,37 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   )
 }
 
+// ---------------- ambient embers ----------------
+
+/** Drifting lantern embers. Deterministic per index (SSR-safe). */
+function Embers() {
+  const embers = Array.from({ length: 12 }, (_, i) => {
+    const h = (i * 2654435761) % 1000
+    return {
+      left: `${4 + ((h % 92))}%`,
+      delay: `${(h % 140) / 10}s`,
+      duration: `${11 + (h % 9)}s`,
+      scale: 0.6 + ((h % 5) / 6),
+    }
+  })
+  return (
+    <div className="embers" aria-hidden="true">
+      {embers.map((e, i) => (
+        <span
+          key={i}
+          className="ember"
+          style={{
+            left: e.left,
+            animationDelay: e.delay,
+            animationDuration: e.duration,
+            transform: `scale(${e.scale})`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 // ---------------- seat ----------------
 
 function Seat(props: {
@@ -177,6 +229,7 @@ function Seat(props: {
   isYou: boolean
   isTurn: boolean
   targetable: boolean
+  hit: number
   waiting: boolean
   difficulty: number | null
   onClick: () => void
@@ -191,6 +244,7 @@ function Seat(props: {
   ].join(' ')
   return (
     <div className={cls} style={props.style} onClick={props.onClick}>
+      {props.hit > 0 && <div key={props.hit} className="seat-impact" />}
       {props.difficulty !== null && <div className="seat-difficulty">{props.difficulty}</div>}
       <div className="seat-name">
         {p.name}

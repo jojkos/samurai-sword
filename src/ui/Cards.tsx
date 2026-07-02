@@ -1,6 +1,7 @@
 import { CARD_DEFS, CHARACTERS } from '../engine/cards'
 import type { Card, CharacterId } from '../engine/types'
 import { CHARACTER_KANJI } from './helpers'
+import { CARD_ICONS } from './Icons'
 
 /** A rendered playing card (ink & parchment style, pure CSS/SVG — original art). */
 export function CardFace(props: {
@@ -11,33 +12,50 @@ export function CardFace(props: {
   onClick?: () => void
 }) {
   const def = CARD_DEFS[props.card.kind]
+  const mini = props.size === 'mini'
   const cls = [
     'card',
     `card-${def.type}`,
-    props.size === 'mini' ? 'card-mini' : 'card-hand',
+    mini ? 'card-mini' : 'card-hand',
     props.selected ? 'card-selected' : '',
     props.dimmed ? 'card-dimmed' : '',
     props.onClick ? 'card-clickable' : '',
   ].join(' ')
+  const kanjiLen = def.kanji.length
   return (
     <div className={cls} onClick={props.onClick} title={`${def.name} — ${def.text}`}>
       <div className="card-frame" />
-      <div className="card-kanji">{def.kanji}</div>
-      <div className="card-name">{def.name}</div>
+      {!mini && <div className="card-title">{def.name}</div>}
+      {!mini && (
+        <div className="card-art">
+          <div className="card-art-wash" />
+          {CARD_ICONS[props.card.kind]}
+        </div>
+      )}
+      <div className={`card-kanji card-kanji-${kanjiLen >= 4 ? 'xl' : kanjiLen === 3 ? 'l' : 's'}`}>
+        {def.kanji}
+      </div>
       {def.type === 'weapon' && (
         <>
-          <div className="card-seal card-difficulty" title="Difficulty">{def.difficulty}</div>
-          <div className="card-seal card-damage" title="Wounds">{def.damage}</div>
+          <div className="card-seal card-difficulty" title={`Difficulty ${def.difficulty}`}>{def.difficulty}</div>
+          <div className="card-seal card-damage" title={`${def.damage} wound(s)`}>{def.damage}</div>
         </>
       )}
-      {props.card.kind === 'parry' && <div className="card-corner-hint">受</div>}
+      {!mini && card_hint(props.card.kind)}
+      <div className="card-typestrip" />
     </div>
   )
+}
+
+function card_hint(kind: string) {
+  if (kind === 'parry') return <div className="card-corner-hint">受</div>
+  return null
 }
 
 export function CardBack(props: { size?: 'hand' | 'mini' }) {
   return (
     <div className={`card card-back ${props.size === 'mini' ? 'card-mini' : 'card-hand'}`}>
+      <div className="card-back-ring" />
       <div className="card-back-mon">侍</div>
     </div>
   )

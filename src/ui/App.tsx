@@ -91,6 +91,7 @@ export function App() {
 
   return (
     <div className="app">
+      <SceneBackdrop />
       {error && <div className="toast toast-error">{error}</div>}
 
       {dead && (
@@ -107,40 +108,50 @@ export function App() {
         <div className="home">
           <h1 className="home-title">
             <span className="home-kanji">侍</span>
-            Samurai Sword
+            <span className="home-name">Samurai Sword</span>
+            <span className="home-subtitle">刀 · The Way of Honor</span>
           </h1>
-          <p className="home-sub">The card game of honor and hidden roles — 3 to 7 players, online.</p>
+          <p className="home-sub">A card game of hidden roles and stolen honor — 3 to 7 warriors, online.</p>
           <div className="home-panel">
+            <label className="home-label" htmlFor="warrior-name">Your name, warrior</label>
             <input
+              id="warrior-name"
               className="input"
-              placeholder="Your name"
+              placeholder="e.g. Musashi"
               maxLength={16}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <div className="home-actions">
-              <button className="btn btn-primary" onClick={createRoom}>Create room</button>
-              <div className="home-join">
-                <input
-                  className="input input-code"
-                  placeholder="CODE"
-                  maxLength={4}
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => e.key === 'Enter' && joinRoom()}
-                />
-                <button className="btn" onClick={joinRoom}>Join</button>
+            <div className="home-columns">
+              <div className="home-column">
+                <span className="home-label">Gather your clan</span>
+                <button className="btn btn-primary" onClick={createRoom}>Create a room</button>
+              </div>
+              <div className="home-divider"><span>or</span></div>
+              <div className="home-column">
+                <span className="home-label">Answer the call</span>
+                <div className="home-join">
+                  <input
+                    className="input input-code"
+                    placeholder="CODE"
+                    maxLength={4}
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === 'Enter' && joinRoom()}
+                  />
+                  <button className="btn" onClick={joinRoom}>Join</button>
+                </div>
               </div>
             </div>
             {hostSave?.state && (
               <button className="btn btn-ghost" onClick={resumeRoom}>
-                Resume room {hostSave.code} (game in progress)
+                ⟲ Resume room {hostSave.code} (game in progress)
               </button>
             )}
           </div>
           <p className="home-note">
-            One player creates a room and shares the code. Everyone connects directly to the
-            host&apos;s browser — keep the host tab open.
+            One player creates a room and shares its code. Everyone connects directly to the
+            host&apos;s browser — no accounts, nothing to install. Keep the host tab open.
           </p>
         </div>
       )}
@@ -194,5 +205,34 @@ export function App() {
         <GameScreen view={view} session={session} onLeave={leave} />
       )}
     </div>
+  )
+}
+
+/** Night scene behind everything + shared SVG filter defs. All code-generated. */
+function SceneBackdrop() {
+  return (
+    <>
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <filter id="rough-ink" x="-8%" y="-8%" width="116%" height="116%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="3" seed="2" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </svg>
+      <div className="scene" aria-hidden="true">
+        <div className="scene-sky" />
+        <div className="scene-moon" />
+        <svg className="scene-mountains" viewBox="0 0 1200 260" preserveAspectRatio="none">
+          <path
+            d="M0 260 L0 190 Q120 130 240 175 Q330 205 420 160 Q540 100 660 165 Q760 200 870 150 Q1000 95 1100 160 L1200 190 L1200 260 Z"
+            fill="#0d0f16" opacity="0.85"
+          />
+          <path
+            d="M0 260 L0 225 Q160 175 320 215 Q470 250 620 205 Q790 155 940 210 Q1080 250 1200 215 L1200 260 Z"
+            fill="#141018" opacity="0.7"
+          />
+        </svg>
+        <div className="scene-grade" />
+      </div>
+    </>
   )
 }
