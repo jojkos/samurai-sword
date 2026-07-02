@@ -262,7 +262,10 @@ function Hand(props: {
         <div
           key={card.id}
           className="hand-slot"
-          style={{ ['--fan' as string]: `${(i - (n - 1) / 2) * Math.min(8, 40 / n)}deg` }}
+          style={{
+            ['--fan' as string]: `${(i - (n - 1) / 2) * Math.min(8, 40 / Math.max(n, 1))}deg`,
+            ['--lift' as string]: `${Math.abs(i - (n - 1) / 2) * 7}px`,
+          }}
         >
           <CardFace
             card={card}

@@ -464,7 +464,7 @@ body {
 }
 
 .hand-slot {
-  transform: rotate(var(--fan)) translateY(calc(28px * max(var(--fan), -1 * var(--fan)) / 30deg));
+  transform: rotate(var(--fan, 0deg)) translateY(var(--lift, 0px));
   transform-origin: 50% 130%;
   margin: 0 -14px;
   transition: transform 0.15s ease;
