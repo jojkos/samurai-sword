@@ -145,7 +145,7 @@ export function App() {
             </div>
             {hostSave?.state && (
               <button className="btn btn-ghost" onClick={resumeRoom}>
-                ⟲ Resume room {hostSave.code} (game in progress)
+                ⟲ Resume hosting room {hostSave.code} (game in progress)
               </button>
             )}
           </div>

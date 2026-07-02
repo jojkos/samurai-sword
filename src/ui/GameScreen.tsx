@@ -68,7 +68,19 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   }
 
   function clickSeat(seat: number) {
-    if (!targetMode || !targetMode.targets.includes(seat)) return
+    if (!targetMode) return
+    if (!targetMode.targets.includes(seat)) {
+      const target = view.players[seat]
+      const def = CARD_DEFS[targetMode.card.kind]
+      if (seat === view.seat) setBlocked('You cannot target yourself')
+      else if (target.harmless) setBlocked(`${target.name} is Harmless and cannot be targeted`)
+      else if (targetMode.kind === 'weapon') {
+        setBlocked(
+          `Out of reach — difficulty ${viewAttackDifficulty(view, view.seat, seat)} exceeds ${def.name}'s ${def.difficulty}`,
+        )
+      } else setBlocked(`${target.name} cannot be targeted by ${def.name}`)
+      return
+    }
     const card = targetMode.card.id
     switch (targetMode.kind) {
       case 'weapon':
@@ -409,6 +421,7 @@ function PromptModal(props: { view: PlayerView; prompt: Pending; session: Sessio
   switch (prompt.type) {
     case 'parry': {
       const attacker = view.players[prompt.attackerSeat]
+      const weaponDef = CARD_DEFS[prompt.weaponCard.kind]
       const options = hand.filter((c) => c.kind === 'parry' || (hanzoOk && isWeapon(c)))
       return (
         <Modal title={`${attacker.name} attacks you!`}>
@@ -416,8 +429,9 @@ function PromptModal(props: { view: PlayerView; prompt: Pending; session: Sessio
             <CardFace card={prompt.weaponCard} />
           </div>
           <p>
-            {CARD_DEFS[prompt.weaponCard.kind].name} strikes for <strong>{prompt.damage}</strong> wound
-            {prompt.damage > 1 ? 's' : ''}. Parry, or take the hit?
+            {weaponDef.name} strikes for <strong>{prompt.damage}</strong> wound
+            {prompt.damage > 1 ? 's' : ''}
+            {prompt.damage !== weaponDef.damage && <> ({weaponDef.damage} + bonuses)</>}. Parry, or take the hit?
           </p>
           <div className="modal-cards">
             {options.map((c) => (

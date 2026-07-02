@@ -502,17 +502,25 @@ body {
   position: absolute;
   top: -14px;
   right: -14px;
-  width: 30px; height: 30px;
-  border-radius: 26%;
-  transform: rotate(-4deg);
-  background: radial-gradient(circle at 35% 30%, #d24252, #8f1d2c);
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #3f6d88, var(--indigo));
+  border: 1px solid rgba(246, 237, 214, 0.55);
   color: var(--washi);
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-weight: 700;
+  font-size: 1rem;
   box-shadow: var(--shadow-contact), var(--shadow-soft);
   z-index: 6;
-  filter: url(#rough-ink);
+}
+.seat-difficulty::before {
+  content: '距';
+  font-size: 0.62rem;
+  font-weight: 400;
+  opacity: 0.85;
 }
 
 .seat-name {
@@ -911,6 +919,9 @@ body {
   padding: 1.6rem 2rem 1.5rem;
   max-width: min(92vw, 640px);
   max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   overflow-y: auto;
   text-align: center;
   animation: unfurl 400ms var(--ease-overshoot);
@@ -954,6 +965,9 @@ body {
   justify-content: center;
   flex-wrap: wrap;
   margin: 1rem 0;
+  padding: 8px 4px;
+  max-height: 46vh;
+  overflow-y: auto;
 }
 .modal-cards .card-clickable:hover { transform: translateY(-6px) scale(1.05); }
 

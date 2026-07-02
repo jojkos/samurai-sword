@@ -100,7 +100,9 @@ export class HostSession implements Session {
             this.peer = this.createPeer()
           }, 1500)
         } else {
-          this.events.onDead('Could not claim the room. Wait a few seconds and try again.')
+          this.events.onDead(
+            'This room is still open in another tab or device. Close the other host tab first — or just Join with the room code.',
+          )
         }
       } else if (err.type === 'peer-unavailable') {
         // a guest vanished; ignore
