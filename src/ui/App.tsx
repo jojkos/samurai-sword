@@ -166,37 +166,56 @@ export function App() {
       {screen.s === 'lobby' && session && (
         <div className="home">
           <h1 className="home-title"><span className="home-kanji">侍</span>Samurai Sword</h1>
-          <div className="lobby-code">
-            Room code: <strong>{screen.code}</strong>
-            <button
-              className="btn btn-ghost btn-small"
-              onClick={() => navigator.clipboard?.writeText(`${location.origin}${location.pathname}?join=${screen.code}`)}
-              title="Copy invite link"
-            >
-              copy link
-            </button>
+          <div className="home-panel lobby-panel">
+            <span className="home-label">Room code — share it with your clan</span>
+            <div className="lobby-code">
+              <strong className="lobby-code-hero">{screen.code}</strong>
+              <button
+                className="btn btn-ghost btn-small"
+                onClick={() => navigator.clipboard?.writeText(`${location.origin}${location.pathname}?join=${screen.code}`)}
+                title="Copy invite link"
+              >
+                copy link
+              </button>
+            </div>
+            <span className="home-label">Warriors {screen.players.length}/7</span>
+            <ul className="lobby-slots">
+              {Array.from({ length: 7 }, (_, i) => {
+                const p = screen.players[i]
+                if (!p) {
+                  return (
+                    <li key={`empty-${i}`} className="lobby-slot lobby-slot-empty">
+                      awaiting warrior…
+                    </li>
+                  )
+                }
+                return (
+                  <li
+                    key={p.seat}
+                    className={`lobby-slot lobby-slot-filled ${p.connected ? '' : 'lobby-offline'}`}
+                  >
+                    <span className="lobby-slot-name">{p.name}</span>
+                    {p.isHost && <span className="lobby-tag lobby-tag-host">host</span>}
+                    {p.seat === screen.seat && <span className="lobby-tag lobby-tag-you">you</span>}
+                    {!p.connected && <span className="lobby-offline-tag">offline</span>}
+                  </li>
+                )
+              })}
+            </ul>
+            {session.startGame ? (
+              screen.players.length < 3 ? (
+                <p className="lobby-waiting pulse">
+                  Awaiting more warriors… ({screen.players.length}/3 minimum)
+                </p>
+              ) : (
+                <button className="btn btn-primary lobby-begin" onClick={() => session.startGame!()}>
+                  Begin the duel ({screen.players.length} players)
+                </button>
+              )
+            ) : (
+              <p className="lobby-waiting pulse">Waiting for the host to begin…</p>
+            )}
           </div>
-          <ul className="lobby-list">
-            {screen.players.map((p) => (
-              <li key={p.seat} className={p.connected ? '' : 'lobby-offline'}>
-                {p.name} {p.isHost && <em>(host)</em>} {p.seat === screen.seat && <em>(you)</em>}
-                {!p.connected && ' — offline'}
-              </li>
-            ))}
-          </ul>
-          {session.startGame ? (
-            <button
-              className="btn btn-primary"
-              disabled={screen.players.length < 3}
-              onClick={() => session.startGame!()}
-            >
-              {screen.players.length < 3
-                ? `Waiting for players (${screen.players.length}/3 minimum)`
-                : `Begin the duel (${screen.players.length} players)`}
-            </button>
-          ) : (
-            <p className="pulse">Waiting for the host to begin…</p>
-          )}
           <button className="btn btn-ghost" onClick={leave}>Leave</button>
         </div>
       )}

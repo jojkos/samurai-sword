@@ -105,9 +105,11 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
     return view.players.map((p) => {
       const rel = (p.seat - view.seat + seatCount) % seatCount
       const angle = Math.PI / 2 + (rel * 2 * Math.PI) / seatCount
+      // your own seat sits a touch higher so the hand fan never covers it
+      const radiusY = rel === 0 ? 33 : 38
       return {
         left: 50 + 41 * Math.cos(angle),
-        top: 50 + 38 * Math.sin(angle),
+        top: 50 + radiusY * Math.sin(angle),
       }
     })
   }, [view.seat, seatCount, view.players])
@@ -125,11 +127,27 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
           <div className="table-inner" />
           <div className="table-center">
             <div className="pile">
-              <CardBack size="mini" />
+              <span className="pile-shadow" aria-hidden="true" />
+              {view.deckCount > 0 ? (
+                <>
+                  {view.deckCount > 1 && <span className="pile-edges" aria-hidden="true" />}
+                  <CardBack size="mini" />
+                </>
+              ) : (
+                <div className="pile-empty" />
+              )}
               <span className="pile-count">{view.deckCount}</span>
             </div>
             <div className="pile">
-              {view.discardTop ? <CardFace card={view.discardTop} size="mini" /> : <div className="pile-empty" />}
+              <span className="pile-shadow" aria-hidden="true" />
+              {view.discardTop ? (
+                <>
+                  {view.discardCount > 1 && <span className="pile-edges" aria-hidden="true" />}
+                  <CardFace card={view.discardTop} size="mini" />
+                </>
+              ) : (
+                <div className="pile-empty" />
+              )}
               <span className="pile-count">{view.discardCount}</span>
             </div>
           </div>
@@ -300,7 +318,13 @@ function StatusBar(props: {
         onClick={() => props.setShowRole(!props.showRole)}
         title="Your secret role — click to peek"
       >
-        {props.showRole ? `${role.kanji} ${role.name}` : '?? secret role'}
+        {props.showRole ? (
+          `${role.kanji} ${role.name}`
+        ) : (
+          <>
+            <span className="role-glyph">役</span>secret role
+          </>
+        )}
       </button>
       {props.showRole && <span className="role-team">team: {TEAM_LABEL[role.team]}</span>}
       <span className={`turn-indicator ${props.myTurn ? 'turn-yours' : ''}`}>
@@ -327,8 +351,35 @@ function Hand(props: {
 }) {
   const { view } = props
   const n = view.you.hand.length
+  // hover-inspect: after a short dwell, show an enlarged card + rules text above the fan
+  const [inspectId, setInspectId] = useState<number | null>(null)
+  const inspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (inspectTimer.current) clearTimeout(inspectTimer.current) }, [])
+  const beginInspect = (id: number) => {
+    if (inspectTimer.current) clearTimeout(inspectTimer.current)
+    inspectTimer.current = setTimeout(() => setInspectId(id), 280)
+  }
+  const endInspect = () => {
+    if (inspectTimer.current) clearTimeout(inspectTimer.current)
+    setInspectId(null)
+  }
+  const inspected = inspectId !== null ? view.you.hand.find((c) => c.id === inspectId) : undefined
   return (
-    <div className="hand">
+    <div className="hand" onMouseLeave={endInspect}>
+      {inspected && (
+        <div className="card-inspect" aria-hidden="true">
+          <div className="card-inspect-card">
+            <CardFace card={inspected} />
+          </div>
+          <div className="card-inspect-text">
+            <div className="card-inspect-name">
+              {CARD_DEFS[inspected.kind].name}
+              <span className="card-inspect-kanji">{CARD_DEFS[inspected.kind].kanji}</span>
+            </div>
+            <p>{CARD_DEFS[inspected.kind].text}</p>
+          </div>
+        </div>
+      )}
       {view.you.hand.map((card, i) => (
         <div
           key={card.id}
@@ -337,6 +388,7 @@ function Hand(props: {
             ['--fan' as string]: `${(i - (n - 1) / 2) * Math.min(8, 40 / Math.max(n, 1))}deg`,
             ['--lift' as string]: `${Math.abs(i - (n - 1) / 2) * 7}px`,
           }}
+          onMouseEnter={() => beginInspect(card.id)}
         >
           <CardFace
             card={card}
@@ -435,7 +487,14 @@ function PromptModal(props: { view: PlayerView; prompt: Pending; session: Sessio
           </p>
           <div className="modal-cards">
             {options.map((c) => (
-              <CardFace key={c.id} card={c} onClick={() => session.sendIntent({ t: 'respondParry', card: c.id })} />
+              <div
+                key={c.id}
+                className="modal-choice modal-choice-play"
+                onClick={() => session.sendIntent({ t: 'respondParry', card: c.id })}
+              >
+                <CardFace card={c} />
+                <span>Play {CARD_DEFS[c.kind].name}</span>
+              </div>
             ))}
           </div>
           <button className="btn btn-danger" onClick={() => session.sendIntent({ t: 'respondParry', card: null })}>
@@ -455,7 +514,14 @@ function PromptModal(props: { view: PlayerView; prompt: Pending; session: Sessio
           <p>Discard a {isCry ? 'Parry' : 'Weapon'} or suffer 1 wound.</p>
           <div className="modal-cards">
             {options.map((c) => (
-              <CardFace key={c.id} card={c} onClick={() => session.sendIntent({ t: 'respondForced', card: c.id })} />
+              <div
+                key={c.id}
+                className="modal-choice modal-choice-play"
+                onClick={() => session.sendIntent({ t: 'respondForced', card: c.id })}
+              >
+                <CardFace card={c} />
+                <span>Discard {CARD_DEFS[c.kind].name}</span>
+              </div>
             ))}
           </div>
           <button className="btn btn-danger" onClick={() => session.sendIntent({ t: 'respondForced', card: null })}>
@@ -474,7 +540,14 @@ function PromptModal(props: { view: PlayerView; prompt: Pending; session: Sessio
           <p>Discard a Weapon to pass Bushido on — or {shogun3p ? 'discard Bushido (the Shogun loses no Honor)' : 'lose 1 Honor'}.</p>
           <div className="modal-cards">
             {weapons.map((c) => (
-              <CardFace key={c.id} card={c} onClick={() => session.sendIntent({ t: 'respondBushido', discardWeapon: c.id })} />
+              <div
+                key={c.id}
+                className="modal-choice modal-choice-play"
+                onClick={() => session.sendIntent({ t: 'respondBushido', discardWeapon: c.id })}
+              >
+                <CardFace card={c} />
+                <span>Discard {CARD_DEFS[c.kind].name}</span>
+              </div>
             ))}
           </div>
           <button className="btn btn-danger" onClick={() => session.sendIntent({ t: 'respondBushido', loseHonor: true })}>
@@ -548,13 +621,18 @@ function LogPanel(props: { view: PlayerView }) {
   return (
     <div className={`log ${open ? '' : 'log-closed'}`}>
       <button className="log-toggle" onClick={() => setOpen(!open)}>
-        {open ? '▸ chronicle' : '◂ chronicle'}
+        {open ? '▾ chronicle' : '▸ chronicle'}
       </button>
       {open && (
         <div className="log-entries" ref={ref}>
-          {props.view.log.map((e) => (
-            <div key={e.n} className="log-entry">{e.text}</div>
-          ))}
+          {props.view.log.map((e) => {
+            const isTurn = e.text.startsWith('—')
+            return (
+              <div key={e.n} className={`log-entry ${isTurn ? 'log-entry-turn' : ''}`}>
+                {isTurn ? e.text.replace(/^—\s*/, '').replace(/\s*—$/, '') : e.text}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
