@@ -39,8 +39,13 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
     }
     const action = cardAction(view, card)
     if ('blocked' in action) setBlocked(action.blocked)
-    else if ('play' in action) session.sendIntent({ t: 'playAction', card: card.id })
-    else setTargetMode(action.target)
+    else if ('play' in action) {
+      session.sendIntent(
+        CARD_DEFS[card.kind].type === 'property'
+          ? { t: 'playProperty', card: card.id }
+          : { t: 'playAction', card: card.id },
+      )
+    } else setTargetMode(action.target)
     setGeishaSeat(null)
   }
 

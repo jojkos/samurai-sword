@@ -67,6 +67,8 @@ export class HostSession implements Session {
   private hostName: string
   private closed = false
 
+  private idRetries = 0
+
   constructor(hostName: string, events: SessionEvents, resume?: HostSave) {
     this.events = events
     this.hostName = hostName
@@ -74,23 +76,39 @@ export class HostSession implements Session {
     this.roster = resume?.roster ?? { tokens: ['host'], names: [hostName] }
     this.state = resume?.state ?? null
     this.conns = this.roster.tokens.map(() => null)
+    this.peer = this.createPeer()
+    this.save()
+  }
 
-    this.peer = new Peer(roomToPeerId(this.code))
-    this.peer.on('open', () => {
+  private createPeer(): Peer {
+    const peer = new Peer(roomToPeerId(this.code))
+    peer.on('open', () => {
+      this.idRetries = 0
       this.pushLobby()
       if (this.state) this.pushViews()
     })
-    this.peer.on('connection', (conn) => this.onConnection(conn))
-    this.peer.on('error', (err: Error & { type?: string }) => {
+    peer.on('connection', (conn) => this.onConnection(conn))
+    peer.on('error', (err: Error & { type?: string }) => {
       if (err.type === 'unavailable-id') {
-        events.onDead('Room code already in use. Create the room again.')
+        // After a reload the broker may hold our old registration for a few
+        // seconds — retry before giving up.
+        if (this.closed) return
+        if (this.idRetries++ < 6) {
+          setTimeout(() => {
+            if (this.closed) return
+            this.peer.destroy()
+            this.peer = this.createPeer()
+          }, 1500)
+        } else {
+          this.events.onDead('Could not claim the room. Wait a few seconds and try again.')
+        }
       } else if (err.type === 'peer-unavailable') {
         // a guest vanished; ignore
       } else if (!this.closed) {
-        events.onError(`Network: ${err.type ?? err.message}`)
+        this.events.onError(`Network: ${err.type ?? err.message}`)
       }
     })
-    this.save()
+    return peer
   }
 
   get started(): boolean {
@@ -134,9 +152,8 @@ export class HostSession implements Session {
       this.roster.tokens.push(msg.token)
       this.roster.names.push(msg.name || `Player ${seat + 1}`)
       this.conns.push(null)
-    } else if (msg.name) {
-      this.roster.names[seat] = msg.name
     }
+    // A known token keeps its original name — a rejoin never renames the seat.
     this.conns[seat]?.close()
     this.conns[seat] = conn
     this.save()
@@ -245,9 +262,11 @@ export class GuestSession implements Session {
     this.code = code.toUpperCase()
     this.name = name
     this.events = events
-    const saved = localStorage.getItem(guestKey(this.code))
+    // sessionStorage: per-tab, so several guests can play from one browser;
+    // still survives a reload of that tab (seat is reclaimed via the token).
+    const saved = sessionStorage.getItem(guestKey(this.code))
     this.token = saved ?? newToken()
-    localStorage.setItem(guestKey(this.code), this.token)
+    sessionStorage.setItem(guestKey(this.code), this.token)
 
     this.peer = new Peer()
     this.peer.on('open', () => this.connect())
