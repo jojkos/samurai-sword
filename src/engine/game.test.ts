@@ -237,6 +237,53 @@ describe('defeat and game end', () => {
     expect(after.phase).toBe('play')
   })
 
+  it('defeat via Jiu-jitsu transfers 1 honor to the card player', () => {
+    const jj = c('jiujitsu')
+    const s = mkState([
+      { role: 'shogun', hand: [jj], honor: 5 },
+      // no weapon in hand → cannot answer → the wound is automatic
+      { role: 'ninja1', hand: [c('parry')], resilience: 1, honor: 4 },
+      { role: 'ninja2', honor: 4 },
+      { role: 'samurai1', honor: 4 },
+    ])
+    const after = applyIntent(s, 0, { t: 'playAction', card: jj.id })
+    expect(after.players[1].resilience).toBe(0)
+    expect(after.players[1].honor).toBe(3)
+    expect(after.players[0].honor).toBe(6)
+  })
+
+  it('defeat via Battle Cry transfers 1 honor to the card player', () => {
+    const bc = c('battlecry')
+    const s = mkState([
+      { role: 'shogun', hand: [bc], honor: 5 },
+      // no parry in hand → cannot answer → the wound is automatic
+      { role: 'ninja1', hand: [c('bokken')], resilience: 1, honor: 4 },
+      { role: 'ninja2', honor: 4 },
+      { role: 'samurai1', honor: 4 },
+    ])
+    const after = applyIntent(s, 0, { t: 'playAction', card: bc.id })
+    expect(after.players[1].resilience).toBe(0)
+    expect(after.players[1].honor).toBe(3)
+    expect(after.players[0].honor).toBe(6)
+  })
+
+  it('choosing to suffer the forced wound also transfers honor on defeat', () => {
+    const bc = c('battlecry')
+    const s = mkState([
+      { role: 'shogun', hand: [bc], honor: 5 },
+      // has a Parry, could answer — but takes the wound instead
+      { role: 'ninja1', hand: [c('parry')], resilience: 1, honor: 4 },
+      { role: 'ninja2', honor: 4 },
+      { role: 'samurai1', honor: 4 },
+    ])
+    const mid = applyIntent(s, 0, { t: 'playAction', card: bc.id })
+    expect(mid.pending?.type).toBe('forced')
+    const after = applyIntent(mid, 1, { t: 'respondForced', card: null })
+    expect(after.players[1].resilience).toBe(0)
+    expect(after.players[1].honor).toBe(3)
+    expect(after.players[0].honor).toBe(6)
+  })
+
   it('game ends with scoring when honor reaches 0', () => {
     const katana = c('katana')
     const s = mkState([

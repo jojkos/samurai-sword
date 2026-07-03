@@ -68,6 +68,15 @@ describe('GameScreen SSR smoke', () => {
     const html = render(mkView())
     expect(html).toContain('End turn')
     expect(html).toContain('P0')
+    expect(html).toContain('Shogun') // revealed role is labeled with text, not a lone glyph
+    expect(html).toContain('leave 退') // a running game can always be left
+    expect(html).toContain('The duel begins') // fresh game → role ceremony
+  })
+
+  it('skips the role ceremony when rejoining mid-game', () => {
+    const longLog = Array.from({ length: 30 }, (_, n) => ({ n, text: `line ${n}` }))
+    const html = render(mkView({ log: longLog }))
+    expect(html).not.toContain('The duel begins')
   })
 
   it('renders every prompt modal', () => {

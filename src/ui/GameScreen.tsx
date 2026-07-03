@@ -6,16 +6,24 @@ import { CardBack, CardFace, CharacterPlate, Tokens } from './Cards'
 import {
   baseHonor,
   cardAction,
-  cardKindInText,
   CHARACTER_KANJI,
   HIDDEN_ROLE_TEXT,
   ROLE_GOAL,
   ROLE_INFO,
+  showcaseFromLog,
   TEAM_LABEL,
   viewAttackDifficulty,
   weaponStatLines,
+  type ShowcaseEvent,
   type TargetMode,
 } from './helpers'
+
+interface Floater {
+  key: number
+  seat: number
+  kind: 'honor' | 'resilience'
+  delta: number
+}
 import { sound } from './sound'
 
 export function GameScreen(props: { view: PlayerView; session: Session; onLeave: () => void }) {
@@ -26,6 +34,11 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   const [infoSeat, setInfoSeat] = useState<number | null>(null)
   const [blocked, setBlocked] = useState<string | null>(null)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const [floaters, setFloaters] = useState<Floater[]>([])
+  const floaterKey = useRef(0)
+  const [turnFlash, setTurnFlash] = useState(0)
+  // fresh games have a near-empty log; a mid-game rejoin must not replay the ceremony
+  const [ceremony, setCeremony] = useState(() => view.log.length < 8)
   const touch = useTouchDevice()
   const [impact, setImpact] = useState<{ seat: number; n: number } | null>(null)
   const prevView = useRef(view)
@@ -47,9 +60,27 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
     )
       sound.defeat()
     if (view.prompt && !prev.prompt) sound.alert()
-    if (view.phase === 'play' && view.turnSeat === view.seat && prev.turnSeat !== view.seat)
+    if (view.phase === 'play' && view.turnSeat === view.seat && prev.turnSeat !== view.seat) {
       sound.yourTurn()
+      setTurnFlash((n) => n + 1)
+    }
     if (view.result && !prev.result) sound.victory()
+    if (prev.result && !view.result) setCeremony(true) // "Play again" dealt new roles
+
+    // floating ±N over every seat whose honor/resilience changed
+    const drops: Floater[] = []
+    for (const p of view.players) {
+      const before = prev.players[p.seat]
+      if (!before) continue
+      if (p.honor !== before.honor)
+        drops.push({ key: ++floaterKey.current, seat: p.seat, kind: 'honor', delta: p.honor - before.honor })
+      if (p.resilience !== before.resilience)
+        drops.push({ key: ++floaterKey.current, seat: p.seat, kind: 'resilience', delta: p.resilience - before.resilience })
+    }
+    if (drops.length) {
+      setFloaters((f) => [...f, ...drops])
+      setTimeout(() => setFloaters((f) => f.filter((x) => !drops.includes(x))), 1500)
+    }
     for (let i = prev.log.length; i < view.log.length; i++) {
       if (/parr/i.test(view.log[i].text)) {
         sound.parry()
@@ -243,8 +274,35 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
               onInspectCard={(c) => setInspect(c)}
             />
           ))}
+
+          <PlayShowcase view={view} positions={positions} />
+
+          {floaters.map((f) => (
+            <div
+              key={f.key}
+              className={`floater floater-${f.kind} ${f.delta > 0 ? 'floater-plus' : 'floater-minus'}`}
+              style={{
+                left: `${positions[f.seat].left}%`,
+                top: `${positions[f.seat].top}%`,
+                marginLeft: f.kind === 'resilience' ? '-30px' : '30px',
+              }}
+            >
+              {f.delta > 0 ? `+${f.delta}` : f.delta}
+              {f.kind === 'honor' ? '◆' : '●'}
+            </div>
+          ))}
         </div>
       </div>
+
+      {turnFlash > 0 && (
+        <div key={turnFlash} className="turn-banner" aria-hidden="true">
+          Your turn<span className="turn-banner-kanji">出番</span>
+        </div>
+      )}
+
+      {ceremony && view.phase !== 'ended' && (
+        <RoleCeremony view={view} onDone={() => setCeremony(false)} />
+      )}
 
       <StatusBar
         view={view}
@@ -498,6 +556,85 @@ function StatusBar(props: {
       <button className="role-badge leave-btn" onClick={props.onLeave} title="Leave the duel">
         leave 退
       </button>
+    </div>
+  )
+}
+
+/** Sequential center-table showcase of played cards — everyone sees what
+ * was played and by whom, flying in from the actor's seat. */
+function PlayShowcase(props: { view: PlayerView; positions: { left: number; top: number }[] }) {
+  const { view } = props
+  const [queue, setQueue] = useState<{ key: number; ev: ShowcaseEvent }[]>([])
+  const seenLen = useRef(view.log.length)
+  useEffect(() => {
+    if (view.log.length < seenLen.current) {
+      seenLen.current = view.log.length // log reset (Play again)
+      return
+    }
+    const fresh: { key: number; ev: ShowcaseEvent }[] = []
+    for (let i = seenLen.current; i < view.log.length; i++) {
+      const ev = showcaseFromLog(view.log[i].text, view.players)
+      if (ev) fresh.push({ key: view.log[i].n, ev })
+    }
+    seenLen.current = view.log.length
+    if (fresh.length) setQueue((q) => [...q, ...fresh].slice(-4))
+  }, [view.log, view.players])
+  const current = queue[0]
+  useEffect(() => {
+    if (!current) return
+    const t = setTimeout(() => setQueue((q) => q.slice(1)), 1900)
+    return () => clearTimeout(t)
+  }, [current])
+  if (!current) return null
+  const pos = props.positions[current.ev.actorSeat]
+  const actor = view.players[current.ev.actorSeat]
+  return (
+    <div
+      key={current.key}
+      className={`showcase ${current.ev.isAttack ? 'showcase-attack' : ''}`}
+      style={{
+        ['--from-left' as string]: `${pos.left}%`,
+        ['--from-top' as string]: `${pos.top}%`,
+      }}
+      aria-hidden="true"
+    >
+      <div className="showcase-ribbon">
+        <strong>{actor.name}</strong>
+        {current.ev.isAttack ? ' attacks!' : ' plays'}
+      </div>
+      <div className="showcase-cardwrap">
+        <CardFace card={{ id: -current.key, kind: current.ev.kind }} />
+      </div>
+    </div>
+  )
+}
+
+/** Game-start reveal: your role, its goal, and your character's ability. */
+function RoleCeremony(props: { view: PlayerView; onDone: () => void }) {
+  const { view } = props
+  const role = ROLE_INFO[view.you.role]
+  const me = view.players[view.seat]
+  const char = CHARACTERS[me.character]
+  const { onDone } = props
+  useEffect(() => {
+    const t = setTimeout(onDone, 7000)
+    return () => clearTimeout(t)
+  }, [onDone])
+  return (
+    <div className={`ceremony ceremony-${role.team}`} onClick={onDone}>
+      <div className="ceremony-inner">
+        <div className="ceremony-kanji">{role.kanji}</div>
+        <h1>{role.name}</h1>
+        <div className="ceremony-team">team · {TEAM_LABEL[role.team]}</div>
+        <p className="ceremony-goal">{ROLE_GOAL[view.you.role]}</p>
+        <div className="ceremony-char">
+          <h2>
+            <span className="char-kanji">{CHARACTER_KANJI[me.character]}</span> {char.name}
+          </h2>
+          <p>{char.text}</p>
+        </div>
+        <button className="btn btn-primary">The duel begins</button>
+      </div>
     </div>
   )
 }

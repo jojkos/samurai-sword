@@ -61,17 +61,51 @@ export function weaponStatLines(def: { difficulty?: number; damage?: number }): 
   ]
 }
 
-/* Card names sorted longest-first so "Battle Cry" wins over any shorter overlap. */
-const NAMED_KINDS = (Object.keys(CARD_DEFS) as CardKind[]).sort(
-  (a, b) => CARD_DEFS[b].name.length - CARD_DEFS[a].name.length,
-)
+const NAMED_KINDS = Object.keys(CARD_DEFS) as CardKind[]
 
-/** The card a chronicle line talks about, if any — drives the play showcase. */
+/** The FIRST card a chronicle line mentions (ties go to the longer name, so
+ * "Battle Cry" beats any overlap) — the played card always comes first in
+ * the engine's log sentences. */
 export function cardKindInText(text: string): CardKind | null {
+  let best: { kind: CardKind; idx: number; len: number } | null = null
   for (const kind of NAMED_KINDS) {
-    if (text.includes(CARD_DEFS[kind].name)) return kind
+    const name = CARD_DEFS[kind].name
+    const idx = text.indexOf(name)
+    if (idx < 0) continue
+    if (!best || idx < best.idx || (idx === best.idx && name.length > best.len)) {
+      best = { kind, idx, len: name.length }
+    }
   }
-  return null
+  return best?.kind ?? null
+}
+
+export interface ShowcaseEvent {
+  kind: CardKind
+  actorSeat: number
+  isAttack: boolean
+}
+
+/* Only lines where someone actively plays a card get a showcase — draws,
+   discards, wounds and Bushido flips would be noise. */
+const PLAY_VERB = /^ (plays|attacks|parries with|performs|places|puts)\b/
+
+/** Turn a chronicle line into a showcase event, or null if it isn't a play. */
+export function showcaseFromLog(
+  text: string,
+  players: readonly { seat: number; name: string }[],
+): ShowcaseEvent | null {
+  if (text.startsWith('—')) return null
+  // longest name first so "Jonas" is never mistaken for a player named "Jo"
+  const actor = [...players]
+    .sort((a, b) => b.name.length - a.name.length)
+    .find((p) => text.startsWith(p.name + ' '))
+  if (!actor) return null
+  const rest = text.slice(actor.name.length)
+  const verb = rest.match(PLAY_VERB)
+  if (!verb) return null
+  const kind = cardKindInText(rest)
+  if (!kind) return null
+  return { kind, actorSeat: actor.seat, isAttack: verb[1] === 'attacks' }
 }
 
 /** Distance between two seats, skipping harmless intermediates (mirrors the engine). */
