@@ -196,7 +196,17 @@ export function App() {
         title={soundOn ? 'Mute sound' : 'Unmute sound'}
         aria-label={soundOn ? 'Mute sound' : 'Unmute sound'}
       >
-        音
+        <svg viewBox="0 0 24 24" className="sound-icon" aria-hidden="true">
+          <path d="M4 9 H7 L12 5 V19 L7 15 H4 Z" />
+          {soundOn ? (
+            <>
+              <path className="sound-wave" d="M15.5 8.5 A5 5 0 0 1 15.5 15.5" />
+              <path className="sound-wave" d="M17.8 6 A8.5 8.5 0 0 1 17.8 18" />
+            </>
+          ) : (
+            <path className="sound-x" d="M16 9 L21 15 M21 9 L16 15" />
+          )}
+        </svg>
       </button>
       {error && <div className="toast toast-error">{error}</div>}
 
