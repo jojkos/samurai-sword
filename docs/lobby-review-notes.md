@@ -20,8 +20,20 @@ workflow lands (these are on top of / may overlap its reviewers' findings).
 4. **Too many per-seat kanji numerals (一–七) read as noise** — don't give every
    player a different decorative glyph. Tone down / simplify the seat plates.
 
-5. **Routing question (answered in chat):** consider making lobby a real route so
-   browser back/forward works. Feasible via client-side routing (pushState, no
-   reload) — that would NOT break the WebRTC connection because the session object
-   stays in memory. A hard reload still recovers via existing host-resume /
-   guest-rejoin. Deferred as a nice-to-have; see chat answer.
+5. **History handling — OWNER WANTS THIS (confirmed).** Make screens real
+   URL states so browser back/forward work, via client-side routing (History API
+   pushState / popstate — NO full reload), which keeps the in-memory PeerJS
+   session alive so it does NOT break the WebRTC connection. Plan:
+   - URL ↔ screen map: `/` = home, `/room/<CODE>` = lobby, `/room/<CODE>/duel` =
+     game (or keep lobby+game under one room URL and drive by session phase).
+     `?join=<CODE>` already handled — fold into the room route.
+   - `popstate` (back/forward) drives screen transitions instead of remounting;
+     back out of a room = the existing leave() semantics (close session).
+   - Guard: don't tear down `sessionRef` on route change; only leave() closes it.
+   - Hard reload still recovers via existing host-resume (localStorage) and
+     guest-rejoin (sessionStorage) — unchanged.
+   - Do this AFTER the ink-rollout workflow finishes (it's mid-edit on App.tsx;
+     routing also rewrites App.tsx — sequence to avoid conflicts).
+
+6. **Guest tab-close gap: LEAVE AS-IS for now** (owner ok). sessionStorage per-tab
+   stays; a guest who fully closes their tab mid-game loses their seat. Not fixing.

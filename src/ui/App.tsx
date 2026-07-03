@@ -20,9 +20,6 @@ type Screen =
   | { s: 'lobby'; players: LobbyPlayer[]; code: string; seat: number }
   | { s: 'game' }
 
-/** kanji numerals for the seven lobby seats — 一 through 七 */
-const SEAT_KANJI = ['一', '二', '三', '四', '五', '六', '七']
-
 export function App() {
   const [screen, setScreen] = useState<Screen>({ s: 'home' })
   const [view, setView] = useState<PlayerView | null>(null)
@@ -442,10 +439,8 @@ export function App() {
             <p className="ink-lobby-sub">招 · Summon your clan, then take the field</p>
           </header>
 
-          {/* the summons — a painted proclamation bearing the room's seal */}
+          {/* the summons — a painted proclamation */}
           <section className="ink-panel ink-summons">
-            {/* the room's own hanko, pressed into the proclamation's corner */}
-            <span className="ink-summons-seal" aria-hidden="true">令</span>
             <span className="ink-label ink-label-center">The room code</span>
             <div className="ink-summons-row">
               <div className="ink-summons-code">
@@ -479,7 +474,6 @@ export function App() {
                 if (!p) {
                   return (
                     <li key={`empty-${i}`} className="ink-seat ink-seat-empty">
-                      <span className="ink-seat-num" aria-hidden="true">{SEAT_KANJI[i]}</span>
                       <span className="ink-seat-await">awaiting warrior…</span>
                     </li>
                   )
@@ -489,7 +483,6 @@ export function App() {
                     key={p.seat}
                     className={`ink-seat ink-seat-filled ${p.connected ? '' : 'ink-seat-offline'}`}
                   >
-                    <span className="ink-seat-num" aria-hidden="true">{SEAT_KANJI[i]}</span>
                     <span className="ink-seat-name">{p.name}</span>
                     {p.isHost && <span className="ink-seat-tag ink-seat-tag-host">host</span>}
                     {p.seat === screen.seat && <span className="ink-seat-tag ink-seat-tag-you">you</span>}
