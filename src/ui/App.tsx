@@ -36,6 +36,8 @@ export function App() {
   // transient "copied" confirmation on the lobby's copy-link button
   const [copied, setCopied] = useState(false)
   const copyTimer = useRef<number | null>(null)
+  // one-shot dusk veil that falls when the daylight lobby gives way to the night duel
+  const [duskFall, setDuskFall] = useState(false)
   // inline field affordance mirroring the error toast (name / room code)
   const [fieldError, setFieldError] = useState<{ field: 'name' | 'code'; msg: string } | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -54,7 +56,8 @@ export function App() {
   useEffect(() => {
     const unlock = () => sound.unlock()
     const click = (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest?.('.btn, .ink-seal, .ink-resume')) sound.uiClick()
+      if ((e.target as HTMLElement).closest?.('.btn, .ink-seal, .ink-resume, .ink-ghost, .ink-copy'))
+        sound.uiClick()
     }
     window.addEventListener('pointerdown', unlock, { once: true })
     window.addEventListener('click', click)
@@ -71,6 +74,19 @@ export function App() {
     if (lobbyCount > prevLobbyCount.current && prevLobbyCount.current > 0) sound.playerJoin()
     prevLobbyCount.current = lobbyCount
   }, [lobbyCount])
+
+  // entering the duel — the daylight ink world dissolves into night (see .ink-dusk).
+  // keyed on screen.s so mid-game view updates (which keep s==='game') don't retrigger it.
+  const prevScreen = useRef(screen.s)
+  useEffect(() => {
+    const was = prevScreen.current
+    prevScreen.current = screen.s
+    if (screen.s === 'game' && was !== 'game') {
+      setDuskFall(true)
+      const t = setTimeout(() => setDuskFall(false), 1150)
+      return () => clearTimeout(t)
+    }
+  }, [screen.s])
 
   // a reload should land you back where you were, not on the menu:
   // hosts reclaim their room, guests rejoin theirs (their seat token is per-tab)
@@ -180,12 +196,15 @@ export function App() {
   }
 
   const session = sessionRef.current
+  // home, connecting and lobby all live in the daylight ink painting; only the duel
+  // itself moves to night. the daylight→night swap is masked by a one-shot dusk veil.
+  const inkWorld = screen.s === 'home' || screen.s === 'connecting' || screen.s === 'lobby'
 
   return (
-    // home lives inside a daylight ink painting; every other screen keeps the night scene
-    <div className={screen.s === 'home' ? 'app app-ink' : 'app'}>
+    <div className={inkWorld ? 'app app-ink' : 'app'}>
       <SharedFilterDefs />
-      {screen.s === 'home' ? <InkScene /> : <SceneBackdrop />}
+      {inkWorld ? <InkScene /> : <SceneBackdrop />}
+      {duskFall && <div className="ink-dusk" aria-hidden="true" />}
       <button
         className={`sound-toggle ${soundOn ? '' : 'sound-toggle-muted'}`}
         onClick={() => {
@@ -344,85 +363,131 @@ export function App() {
       )}
 
       {screen.s === 'connecting' && (
-        <div className="home">
-          <h2 className="pulse">Opening room {screen.code}…</h2>
-          <button className="btn btn-ghost" onClick={leave}>Cancel</button>
+        <div className="ink-connecting">
+          {/* an ensō that keeps re-drawing itself while the browsers find each other */}
+          <svg className="ink-spinner" viewBox="0 0 100 100" aria-hidden="true">
+            <path
+              className="ink-spinner-stroke" pathLength="1"
+              d="M78 22 C56 8 26 16 18 42 C10 70 30 92 58 88 C82 84 94 60 84 38"
+              fill="none" stroke="#26211a" strokeWidth="6" strokeLinecap="round"
+            />
+          </svg>
+          <h2 className="ink-connecting-title">
+            Opening room <strong className="ink-connecting-code">{screen.code}</strong>
+          </h2>
+          <p className="ink-connecting-sub pulse">binding the thread between browsers…</p>
+          <button className="ink-ghost" onClick={leave}>Cancel</button>
         </div>
       )}
 
       {screen.s === 'lobby' && session && (
-        <div className="home">
-          <h1 className="home-title"><span className="home-kanji">侍</span>Samurai Sword</h1>
-          <div className="home-panel lobby-panel">
-            <div className="lobby-invite">
-              <span className="lobby-invite-label">招 · Summon your clan</span>
-              <div className="lobby-invite-row">
-                <div className="lobby-invite-code">
-                  <strong className="lobby-code-hero">{screen.code}</strong>
-                  <span className="lobby-invite-hint">speak the code, or share the link</span>
-                  <button
-                    className={`btn btn-small lobby-copy ${copied ? 'lobby-copy-done' : ''}`}
-                    onClick={() => copyInvite(screen.code)}
-                    title="Copy invite link"
-                    aria-live="polite"
-                  >
-                    {copied ? '✓ link copied' : 'copy invite link'}
-                  </button>
+        <div className="ink-lobby">
+          <header className="ink-lobby-head">
+            <h1 className="ink-lobby-title">
+              <span className="ink-lobby-kanji" aria-hidden="true">集</span>
+              The Clan Gathers
+            </h1>
+            {/* one brushed rule cut beneath the heading, echoing the home slash */}
+            <svg className="ink-lobby-rule" viewBox="0 0 420 20" preserveAspectRatio="none" aria-hidden="true">
+              <path
+                className="ink-lobby-rule-stroke" pathLength="1"
+                d="M8 13 Q140 5 250 10 Q340 14 412 7"
+                fill="none" stroke="#c3282f" strokeWidth="6" strokeLinecap="round"
+              />
+            </svg>
+            <p className="ink-lobby-sub">招 · Summon your clan, then take the field</p>
+          </header>
+
+          {/* the summons — a painted proclamation bearing the room's seal */}
+          <section className="ink-panel ink-summons">
+            <span className="ink-label ink-label-center">The room code</span>
+            <div className="ink-summons-row">
+              <div className="ink-summons-code">
+                <div className="ink-code-plate">
+                  <svg className="ink-code-frame" viewBox="0 0 260 100" preserveAspectRatio="none" aria-hidden="true">
+                    <rect className="ink-code-frame-stroke" pathLength="1" x="5" y="5" width="250" height="90" rx="9" fill="none" strokeWidth="3" />
+                  </svg>
+                  <strong className="ink-code-hero">{screen.code}</strong>
                 </div>
-                <JoinQr code={screen.code} />
+                <span className="ink-summons-hint">speak the code, or share the link</span>
+                <button
+                  className={`ink-copy ${copied ? 'ink-copy-done' : ''}`}
+                  onClick={() => copyInvite(screen.code)}
+                  title="Copy invite link"
+                  aria-live="polite"
+                >
+                  <span className="ink-copy-kanji" aria-hidden="true">{copied ? '✓' : '写'}</span>
+                  {copied ? 'link copied' : 'copy invite link'}
+                </button>
               </div>
+              <JoinQr code={screen.code} />
             </div>
-            <span className="home-label">Warriors · {screen.players.length}/7</span>
-            <ul className="lobby-slots">
+          </section>
+
+          {/* the roster — each arrival brushed onto its name plate */}
+          <section className="ink-panel ink-roster">
+            <span className="ink-label ink-label-center">Warriors · {screen.players.length}/7</span>
+            <ul className="ink-seats">
               {Array.from({ length: 7 }, (_, i) => {
                 const p = screen.players[i]
                 if (!p) {
                   return (
-                    <li key={`empty-${i}`} className="lobby-slot lobby-slot-empty">
-                      <span className="lobby-slot-num" aria-hidden="true">{SEAT_KANJI[i]}</span>
-                      awaiting warrior…
+                    <li key={`empty-${i}`} className="ink-seat ink-seat-empty">
+                      <span className="ink-seat-num" aria-hidden="true">{SEAT_KANJI[i]}</span>
+                      <span className="ink-seat-await">awaiting warrior…</span>
                     </li>
                   )
                 }
                 return (
                   <li
                     key={p.seat}
-                    className={`lobby-slot lobby-slot-filled ${p.connected ? '' : 'lobby-offline'}`}
+                    className={`ink-seat ink-seat-filled ${p.connected ? '' : 'ink-seat-offline'}`}
                   >
-                    <span className="lobby-slot-num" aria-hidden="true">{SEAT_KANJI[i]}</span>
-                    <span className="lobby-slot-name">{p.name}</span>
-                    {p.isHost && <span className="lobby-tag lobby-tag-host">host</span>}
-                    {p.seat === screen.seat && <span className="lobby-tag lobby-tag-you">you</span>}
-                    {!p.connected && <span className="lobby-offline-tag">offline</span>}
+                    <span className="ink-seat-num" aria-hidden="true">{SEAT_KANJI[i]}</span>
+                    <span className="ink-seat-name">{p.name}</span>
+                    {p.isHost && <span className="ink-seat-tag ink-seat-tag-host">host</span>}
+                    {p.seat === screen.seat && <span className="ink-seat-tag ink-seat-tag-you">you</span>}
+                    {!p.connected && <span className="ink-seat-offline-tag">offline</span>}
+                    {/* the brush stroke that writes the warrior onto the roster */}
+                    <svg className="ink-seat-brush" viewBox="0 0 300 10" preserveAspectRatio="none" aria-hidden="true">
+                      <path
+                        className="ink-seat-brush-stroke" pathLength="1"
+                        d="M4 6 Q90 2 160 5 Q230 8 296 4"
+                        fill="none" stroke="#26211a" strokeWidth="2.5" strokeLinecap="round"
+                      />
+                    </svg>
                   </li>
                 )
               })}
             </ul>
-            {session.startGame ? (
-              <div className="lobby-begin-wrap">
-                <button
-                  className="btn btn-primary lobby-begin"
-                  disabled={screen.players.length < 3}
-                  onClick={() => session.startGame!()}
-                >
-                  Begin the duel
-                </button>
-                {screen.players.length < 3 ? (
-                  <p className="lobby-begin-hint pulse">
-                    A duel needs at least 3 warriors — awaiting{' '}
-                    {3 - screen.players.length === 1 ? 'one more' : `${3 - screen.players.length} more`}…
-                  </p>
-                ) : (
-                  <p className="lobby-begin-hint lobby-begin-ready">
-                    {screen.players.length} warriors stand ready.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="lobby-waiting pulse">Waiting for the host to begin…</p>
-            )}
-          </div>
-          <button className="btn btn-ghost" onClick={leave}>Leave</button>
+          </section>
+
+          {session.startGame ? (
+            <div className="ink-begin-wrap">
+              <button
+                className="ink-seal ink-seal-vermilion ink-begin"
+                disabled={screen.players.length < 3}
+                onClick={() => session.startGame!()}
+              >
+                <span className="ink-seal-kanji" aria-hidden="true">討</span>
+                <span className="ink-seal-text">Begin the duel</span>
+              </button>
+              {screen.players.length < 3 ? (
+                <p className="ink-begin-hint pulse">
+                  A duel needs at least 3 warriors — awaiting{' '}
+                  {3 - screen.players.length === 1 ? 'one more' : `${3 - screen.players.length} more`}…
+                </p>
+              ) : (
+                <p className="ink-begin-hint ink-begin-ready">
+                  {screen.players.length} warriors stand ready.
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="ink-waiting pulse">Waiting for the host to begin…</p>
+          )}
+
+          <button className="ink-ghost" onClick={leave}>Leave the gathering</button>
         </div>
       )}
 
@@ -457,9 +522,9 @@ function JoinQr(props: { code: string }) {
   }, [props.code])
   if (!src) return null
   return (
-    <div className="lobby-qr">
+    <div className="ink-qr">
       <img src={src} alt={`QR code to join room ${props.code}`} width={132} height={132} />
-      <span className="lobby-qr-hint">scan to join</span>
+      <span className="ink-qr-hint">scan to join</span>
     </div>
   )
 }

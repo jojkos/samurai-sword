@@ -108,9 +108,10 @@ body {
    direct child of .app styled with a lone class. Every fixed-position direct
    child MUST be excluded here AND re-fixed via an `.app > .x` rule. Prefer
    mounting floating UI inside .game/.home instead of as an .app child. */
-.app > *:not(.scene):not(.ink-scene):not(.sound-toggle) { position: relative; z-index: 1; }
+.app > *:not(.scene):not(.ink-scene):not(.sound-toggle):not(.ink-dusk) { position: relative; z-index: 1; }
 .app > .sound-toggle { position: fixed; }
 .app > .ink-scene { position: fixed; }
+.app > .ink-dusk { position: fixed; }
 
 /* ================= embers ================= */
 
@@ -226,226 +227,6 @@ body {
 /* 4 tracked Garamond capitals + padding need ~6.4em — 8.5ch clipped the E */
 .input-code { width: 6.4em; text-transform: uppercase; letter-spacing: 0.22em; text-align: center; padding-left: 0.5em; padding-right: 0.3em; }
 
-/* ================= home & lobby ================= */
-
-.home {
-  margin: auto;
-  max-width: 500px;
-  text-align: center;
-  color: var(--washi);
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
-  align-items: center;
-}
-
-.home-title {
-  position: relative;
-  font-size: 2.7rem;
-  font-weight: 400;
-  letter-spacing: 0.12em;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  text-shadow: 0 3px 14px rgba(0, 0, 0, 0.7);
-}
-/* faint moonlit backglow pooling behind the crest — pure gradient, no filters */
-.home-title::before {
-  content: '';
-  position: absolute;
-  top: -70px;
-  left: 50%;
-  width: 340px;
-  height: 340px;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(243, 220, 138, 0.1) 0%, rgba(195, 40, 47, 0.07) 38%, transparent 68%);
-  pointer-events: none;
-  z-index: -1;
-}
-
-.home-kanji {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background:
-    var(--washi-grain),
-    radial-gradient(circle at 68% 26%, rgba(255, 240, 220, 0.22), transparent 55%),
-    radial-gradient(circle at 68% 26%, #c23a4a, #a92c38 48%, #6d1622 100%);
-  background-blend-mode: overlay, normal, normal;
-  color: var(--washi);
-  font-size: 3.3rem;
-  box-shadow:
-    inset 0 0 0 3px rgba(243, 220, 138, 0.4),
-    inset 0 -6px 14px rgba(0, 0, 0, 0.4),
-    0 0 34px rgba(195, 40, 47, 0.3),
-    var(--shadow-soft), var(--shadow-far);
-  animation: crest-drift 7s ease-in-out infinite;
-}
-/* ensō — a hand-brushed ring, deliberately left open at the top right */
-.home-kanji::after {
-  content: '';
-  position: absolute;
-  inset: -11px;
-  border-radius: 50%;
-  border: 1px solid rgba(243, 220, 138, 0.35);
-  -webkit-mask-image: conic-gradient(from 200deg, #000 0 76%, transparent 84% 100%);
-  mask-image: conic-gradient(from 200deg, #000 0 76%, transparent 84% 100%);
-}
-@keyframes crest-drift { 50% { transform: translateY(-5px); } }
-
-.home-name { line-height: 1.1; }
-
-.home-subtitle {
-  font-size: 0.95rem;
-  letter-spacing: 0.5em;
-  text-transform: uppercase;
-  color: var(--gold-bright);
-  opacity: 0.8;
-  margin-left: 0.5em;
-}
-
-/* subtitle hugs the title block; the panel below gets more breathing room */
-.home-sub { margin: -0.3rem 0 0.4rem; opacity: 0.8; font-style: italic; letter-spacing: 0.02em; max-width: 36ch; }
-
-.home-label {
-  display: block;
-  font-size: 0.72rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(242, 232, 207, 0.55);
-  text-align: left;
-  margin-bottom: 2px;
-}
-
-.home-columns {
-  display: flex;
-  align-items: stretch;
-  gap: 1rem;
-  margin-top: 0.3rem;
-}
-.home-column {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: stretch;
-}
-.home-column .home-label { text-align: center; margin-bottom: 0; }
-.home-column .btn { width: 100%; white-space: nowrap; }
-
-.home-divider {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: rgba(242, 232, 207, 0.4);
-  font-size: 0.75rem;
-  font-style: italic;
-  gap: 4px;
-}
-.home-divider::before, .home-divider::after {
-  content: '';
-  width: 1px;
-  flex: 1;
-  background: linear-gradient(180deg, transparent, rgba(242, 232, 207, 0.3), transparent);
-}
-
-.home-panel {
-  width: 100%;
-  background:
-    var(--washi-fiber),
-    linear-gradient(170deg, rgba(242, 232, 207, 0.09), rgba(242, 232, 207, 0.05));
-  border: 1px solid rgba(242, 232, 207, 0.22);
-  border-radius: 10px;
-  padding: 1.4rem 1.3rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.05rem;
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(2px);
-}
-
-/* label + input + inline error travel as one unit inside the panel's rhythm */
-.home-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: stretch;
-  text-align: left;
-}
-.home-field .home-label { margin-bottom: 0; }
-
-.home-field-error {
-  font-size: 0.82rem;
-  font-style: italic;
-  letter-spacing: 0.02em;
-  text-align: left;
-  color: #eba7a0;
-  border-left: 2px solid rgba(195, 40, 47, 0.7);
-  padding-left: 8px;
-}
-.home-column .home-field-error { margin-top: 2px; }
-
-/* resume affordance — quieter than the main actions, gold-dashed like a bookmark */
-.home-resume {
-  font-size: 0.9rem;
-  border-style: dashed;
-  border-color: rgba(243, 220, 138, 0.4);
-  color: rgba(243, 220, 138, 0.9);
-}
-.home-resume:hover:not(:disabled) {
-  border-color: rgba(243, 220, 138, 0.7);
-  background: rgba(243, 220, 138, 0.06);
-  transform: none;
-  box-shadow: none;
-}
-
-.home-actions { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; }
-.home-join { display: flex; gap: 0.5rem; }
-
-.home-note {
-  position: relative;
-  margin: 0.1rem 0 0;
-  padding-top: 0.95rem;
-  font-size: 0.85rem;
-  opacity: 0.6;
-  max-width: 42ch;
-  line-height: 1.5;
-}
-/* hairline brush stroke separating the note from the panel */
-.home-note::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 130px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(242, 232, 207, 0.4), transparent);
-}
-
-.lobby-qr { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-.lobby-qr img {
-  width: 132px;
-  height: 132px;
-  border-radius: 6px;
-  border: 1px solid rgba(28, 18, 10, 0.85);
-  box-shadow: inset 0 0 0 1px rgba(201, 155, 46, 0.4), var(--shadow-contact), var(--shadow-soft);
-}
-.lobby-qr-hint {
-  font-size: 0.68rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(242, 232, 207, 0.5);
-}
-
 /* sound toggle — lacquer chip, bottom-left on every screen */
 .sound-toggle {
   position: fixed;
@@ -471,174 +252,6 @@ body {
 .sound-icon > path:first-child { fill: currentColor; }
 .sound-toggle-muted { color: rgba(242, 232, 207, 0.5); }
 .sound-icon .sound-x { stroke: var(--vermilion); }
-
-.lobby-panel { align-items: stretch; }
-.lobby-panel .home-label { text-align: center; }
-
-/* the invitation card — code, QR and copy travel as one formal summons */
-.lobby-invite {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 1rem 1rem 0.95rem;
-  border: 1px solid rgba(243, 220, 138, 0.38);
-  border-radius: 8px;
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(243, 220, 138, 0.07), transparent 70%),
-    rgba(12, 7, 4, 0.28);
-}
-/* inner hairline — the double rule of a formal card */
-.lobby-invite::before {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  border: 1px solid rgba(243, 220, 138, 0.14);
-  border-radius: 5px;
-  pointer-events: none;
-}
-.lobby-invite-label {
-  font-size: 0.72rem;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--gold-bright);
-  opacity: 0.85;
-}
-.lobby-invite-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1.5rem;
-}
-.lobby-invite-code {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-}
-.lobby-invite-hint {
-  font-size: 0.78rem;
-  font-style: italic;
-  color: rgba(242, 232, 207, 0.55);
-  max-width: 18ch;
-  line-height: 1.35;
-}
-/* fixed-ish width so the label swap to "link copied" doesn't jiggle the card */
-.lobby-copy { min-width: 11.5em; }
-.lobby-copy-done,
-.lobby-copy-done:hover:not(:disabled) {
-  background:
-    var(--washi-grain),
-    linear-gradient(165deg, #f3dc8a 0%, #ddbf60 100%);
-  background-blend-mode: multiply, normal;
-  border-color: rgba(122, 92, 18, 0.9);
-  box-shadow: inset 0 0 0 1px rgba(201, 155, 46, 0.7), 0 0 18px rgba(243, 220, 138, 0.3), var(--shadow-contact);
-  transform: none;
-}
-.lobby-code-hero {
-  font-size: 2.2rem;
-  font-weight: 400;
-  letter-spacing: 0.34em;
-  margin-right: -0.34em; /* optically recenter tracked text */
-  color: var(--gold-bright);
-  text-shadow: 0 0 22px rgba(243, 220, 138, 0.4), 0 2px 6px rgba(0, 0, 0, 0.6);
-}
-
-.lobby-slots {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.lobby-slot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 2.5em;
-  padding: 0.4em 0.9em;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  text-align: left;
-}
-.lobby-slot-filled {
-  background:
-    var(--washi-grain),
-    linear-gradient(165deg, #f2e7cd 0%, #e2d1a9 100%);
-  background-blend-mode: multiply, normal;
-  color: var(--ink);
-  border: 1px solid rgba(28, 18, 10, 0.75);
-  box-shadow: inset 0 0 0 1px rgba(201, 155, 46, 0.25), var(--shadow-contact);
-  /* a new arrival's slip slides onto the roster (transform/opacity only — phone-safe) */
-  animation: slot-arrive 0.5s var(--ease-out) backwards;
-}
-@keyframes slot-arrive {
-  from { opacity: 0; transform: translateY(7px) scale(0.96); }
-}
-/* seat numeral — 一 through 七, a quiet ledger mark on every slip */
-.lobby-slot-num {
-  flex-shrink: 0;
-  font-family: var(--font-kanji);
-  font-size: 0.8rem;
-  line-height: 1;
-  opacity: 0.45;
-}
-.lobby-slot-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lobby-slot-empty {
-  border: 1px dashed rgba(242, 232, 207, 0.28);
-  color: rgba(242, 232, 207, 0.4);
-  font-style: italic;
-  justify-content: center;
-  font-size: 0.82rem;
-  letter-spacing: 0.05em;
-}
-.lobby-offline { opacity: 0.5; }
-.lobby-offline-tag { font-size: 0.75rem; font-style: italic; color: var(--ink-soft); }
-
-.lobby-tag {
-  flex-shrink: 0;
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 1px 8px;
-  border-radius: 9px;
-}
-.lobby-tag-host {
-  background: rgba(201, 155, 46, 0.22);
-  color: #7a5c12;
-  border: 1px solid rgba(201, 155, 46, 0.6);
-}
-.lobby-tag-you {
-  background: rgba(46, 82, 102, 0.14);
-  color: var(--indigo);
-  border: 1px solid rgba(46, 82, 102, 0.45);
-}
-
-.lobby-waiting {
-  margin: 0;
-  font-style: italic;
-  text-align: center;
-  color: rgba(242, 232, 207, 0.7);
-}
-/* host CTA — button + reason line travel together; disabled state keeps the goal visible */
-.lobby-begin-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-}
-.lobby-begin { align-self: center; }
-.lobby-begin-hint {
-  margin: 0;
-  font-size: 0.85rem;
-  font-style: italic;
-  text-align: center;
-  color: rgba(242, 232, 207, 0.65);
-}
-.lobby-begin-ready { color: var(--gold-bright); opacity: 0.9; }
-
 .pulse { animation: pulse 1.8s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.45; } }
 
@@ -2198,7 +1811,6 @@ body {
   .table-scene { inset: 0 0 100px 0; }
   .seat { min-width: 106px; padding: 6px 7px 5px; }
   .log { width: 190px; }
-  .home-title { font-size: 2.1rem; }
   .table-inner::after { font-size: 4rem; }
   .card-inspect { gap: 10px; }
   .card-inspect-card { width: 147px; height: 211px; }
@@ -2207,31 +1819,6 @@ body {
 
 /* phones — landing flow stacks, table & HUD tighten */
 @media (max-width: 640px) {
-  .home { padding: 1.3rem 1rem 2.6rem; gap: 0.9rem; }
-  .home-title { font-size: 1.75rem; gap: 0.55rem; }
-  .home-title::before { width: 250px; height: 250px; top: -50px; }
-  .home-kanji { width: 74px; height: 74px; font-size: 2.5rem; }
-  .home-kanji::after { inset: -8px; }
-  .home-subtitle { font-size: 0.78rem; letter-spacing: 0.32em; }
-  .home-sub { font-size: 0.92rem; margin: -0.15rem 0 0.25rem; }
-  .home-panel { padding: 1.15rem 1rem; gap: 0.95rem; }
-  .home-columns { flex-direction: column; gap: 0.9rem; }
-  .home-divider { flex-direction: row; gap: 10px; }
-  .home-divider::before, .home-divider::after {
-    width: auto;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(242, 232, 207, 0.3), transparent);
-  }
-  .home-join .btn { flex: 1; }
-  .home-field-error { font-size: 0.8rem; }
-  .home-resume { font-size: 0.85rem; }
-  .home-note { font-size: 0.8rem; max-width: 38ch; padding-top: 0.8rem; }
-  .lobby-code-hero { font-size: 1.9rem; }
-  .lobby-invite { padding: 0.9rem 0.75rem 0.85rem; gap: 0.65rem; }
-  .lobby-invite-row { flex-direction: column; gap: 0.9rem; }
-  .lobby-invite-hint { font-size: 0.8rem; max-width: 24ch; }
-  .lobby-qr img { width: 118px; height: 118px; }
-  .lobby-begin-hint { font-size: 0.82rem; }
 
   .toast { max-width: 92vw; font-size: 0.85rem; text-align: center; }
 
@@ -2879,4 +2466,279 @@ body {
   .ink-enso-stroke, .ink-slash-stroke, .ink-underline path, .ink-cartouche-stroke,
   .ink-ridge, .ink-stalk, .ink-seal::before { filter: none; }
   .ink-petals span:nth-child(n + 6) { display: none; }
+}
+
+/* ================================================================
+   LIVING INK — connecting & lobby. The daylight painting carries
+   through from home (same InkScene backdrop), so these screens wear
+   ink on washi, not lacquer on night. Entering the duel drops a
+   one-shot dusk veil (.ink-dusk) that masks the swap to SceneBackdrop.
+   All motion is transform / opacity / stroke-dashoffset — phone-safe.
+   ================================================================ */
+
+/* ---------- dusk-fall: daylight lobby dissolving into the night duel ---------- */
+/* the gradient matches .scene-sky, so as the veil lifts it melts into the
+   real night backdrop now mounted beneath it. z 68: over scene-grade(60) &
+   the role ceremony(52), under toasts(70). */
+.ink-dusk {
+  inset: 0; z-index: 68; pointer-events: none;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 108%, rgba(255, 176, 92, 0.18), transparent 60%),
+    linear-gradient(180deg, var(--indigo-night) 0%, #1c1a20 45%, #241d16 100%);
+  animation: ink-dusk 1.15s var(--ease-out) both;
+}
+@keyframes ink-dusk {
+  0% { opacity: 0; }
+  20%, 55% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---------- connecting: an ensō re-drawing itself while peers find each other ---------- */
+.ink-connecting {
+  margin: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 1rem;
+  padding: 2rem 1.4rem;
+  color: var(--ink); text-align: center;
+}
+.ink-spinner { width: 78px; height: 78px; overflow: visible; animation: ink-spin 3.4s linear infinite; }
+@keyframes ink-spin { to { transform: rotate(360deg); } }
+.ink-spinner-stroke {
+  stroke-dasharray: 1;
+  filter: url(#ink-brush);
+  opacity: 0.85;
+  animation: ink-spin-draw 1.5s ease-in-out infinite;
+}
+@keyframes ink-spin-draw {
+  0% { stroke-dashoffset: 1; }
+  50% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -1; }
+}
+.ink-connecting-title {
+  margin: 0.4rem 0 0;
+  font-size: clamp(1.5rem, 5vw, 2rem); font-weight: 500; letter-spacing: 0.04em;
+  animation: ink-rise 0.7s var(--ease-out) 0.2s backwards;
+}
+.ink-connecting-code { color: var(--crimson); font-weight: 600; letter-spacing: 0.14em; }
+.ink-connecting-sub {
+  margin: 0; font-style: italic; color: rgba(74, 66, 56, 0.8);
+  animation: ink-rise 0.7s var(--ease-out) 0.35s backwards;
+}
+
+/* ---------- lobby: the clan gathering ---------- */
+.ink-lobby {
+  margin: auto; width: 100%; max-width: 600px;
+  padding: 2rem 1.4rem 3rem;
+  display: flex; flex-direction: column; align-items: center; gap: 1.3rem;
+  color: var(--ink); text-align: center;
+}
+
+.ink-lobby-head {
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  animation: ink-rise 0.7s var(--ease-out) backwards;
+}
+.ink-lobby-title {
+  margin: 0;
+  display: flex; align-items: center; gap: 0.55rem;
+  font-size: clamp(1.9rem, 5.5vw, 2.5rem); font-weight: 500; letter-spacing: 0.08em; line-height: 1.1;
+}
+.ink-lobby-kanji { font-family: var(--font-kanji); font-weight: 700; color: var(--crimson); }
+/* one brushed vermilion rule beneath the heading — echoes the home slash */
+.ink-lobby-rule { width: min(340px, 74vw); height: 14px; margin-top: 0.35rem; overflow: visible; }
+.ink-lobby-rule-stroke {
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  opacity: 0.9;
+  animation: ink-draw 0.6s var(--ease-strike) 0.4s backwards, ink-slash-breathe 7s ease-in-out 4s infinite;
+}
+.ink-lobby-sub {
+  margin: 0.45rem 0 0;
+  font-size: 0.76rem; letter-spacing: 0.16em; text-transform: uppercase; color: #8a6a15;
+}
+
+/* a washi slip that lifts panels off the busy painting — the proclamation stock */
+.ink-panel {
+  position: relative; width: 100%;
+  padding: 1.15rem 1.2rem 1.2rem;
+  background: rgba(247, 240, 224, 0.82);
+  border-radius: 5px;
+  box-shadow: 0 1px 14px rgba(247, 240, 224, 0.55), inset 0 0 0 1px rgba(38, 33, 26, 0.09);
+  backdrop-filter: blur(1px);
+  display: flex; flex-direction: column; gap: 0.95rem;
+  animation: ink-rise 0.7s var(--ease-out) 0.2s backwards;
+}
+.ink-summons { animation-delay: 0.25s; }
+.ink-roster { animation-delay: 0.35s; }
+/* hairline rule across the top edge of each slip */
+.ink-panel::before {
+  content: '';
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 150px; height: 2px; border-radius: 1px;
+  background: linear-gradient(90deg, transparent, rgba(38, 33, 26, 0.4), transparent);
+}
+
+/* summons: room code as bold calligraphy in a drawn cartouche, QR alongside */
+.ink-summons-row { display: flex; align-items: center; justify-content: center; gap: 1.6rem; }
+.ink-summons-code { display: flex; flex-direction: column; align-items: center; gap: 0.7rem; }
+.ink-code-plate {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 210px; min-height: 74px;
+  padding: 0.5rem 1.4rem 0.6rem;
+}
+.ink-code-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.ink-code-frame-stroke {
+  stroke: #26211a;
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  opacity: 0.85;
+  animation: ink-draw 0.9s var(--ease-out) 0.55s backwards;
+}
+.ink-code-hero {
+  position: relative;
+  font-family: var(--font-latin); font-weight: 600;
+  font-size: clamp(2.1rem, 8vw, 2.9rem);
+  letter-spacing: 0.32em; margin-right: -0.32em; /* optically recenter tracked text */
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(247, 240, 224, 0.7);
+}
+.ink-summons-hint {
+  font-size: 0.82rem; font-style: italic; color: rgba(74, 66, 56, 0.8);
+  max-width: 20ch; line-height: 1.35;
+}
+
+/* copy button — a quiet ink chip that becomes a vermilion stamp once pressed */
+.ink-copy {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; min-width: 12.5em;
+  padding: 0.4em 1.1em;
+  border: 1px solid rgba(38, 33, 26, 0.5); border-radius: 3px;
+  background: rgba(242, 232, 207, 0.45);
+  font-family: var(--font-latin); font-size: 1rem; color: var(--ink);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.09s var(--ease-out);
+}
+.ink-copy:hover { border-color: rgba(143, 29, 44, 0.7); background: rgba(242, 232, 207, 0.75); }
+.ink-copy:active { transform: scale(0.97); }
+.ink-copy:focus-visible { outline: 2px solid rgba(143, 29, 44, 0.8); outline-offset: 3px; }
+.ink-copy-kanji { font-family: var(--font-kanji); font-size: 1.05rem; line-height: 1; }
+.ink-copy-done, .ink-copy-done:hover {
+  background: linear-gradient(160deg, #c93a38, #a31f28);
+  border-color: rgba(122, 20, 32, 0.9);
+  color: var(--washi);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 232, 207, 0.5), 0 2px 9px rgba(74, 40, 20, 0.3);
+}
+
+/* QR — inked border on washi (the code data itself is washi/ink, set in JoinQr) */
+.ink-qr { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.ink-qr img {
+  width: 126px; height: 126px; border-radius: 6px;
+  border: 1px solid rgba(38, 33, 26, 0.7);
+  background: var(--washi);
+  box-shadow: inset 0 0 0 1px rgba(143, 29, 44, 0.25), var(--shadow-contact);
+}
+.ink-qr-hint {
+  font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: rgba(74, 66, 56, 0.7);
+}
+
+/* roster: each warrior brushed onto a name plate as they arrive */
+.ink-seats {
+  list-style: none; padding: 0; margin: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px;
+}
+.ink-seat {
+  position: relative;
+  display: flex; align-items: center; gap: 9px;
+  min-height: 2.7em;
+  padding: 0.5em 0.9em 0.65em;
+  border-radius: 5px;
+  font-size: 1rem; text-align: left;
+  overflow: hidden;
+}
+.ink-seat-num {
+  flex-shrink: 0; font-family: var(--font-kanji); font-size: 0.9rem; line-height: 1;
+  opacity: 0.6; color: var(--crimson);
+}
+.ink-seat-filled {
+  color: var(--ink);
+  background: rgba(247, 240, 224, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(38, 33, 26, 0.12), 0 1px 6px rgba(74, 40, 20, 0.08);
+  /* the plate settles onto the roster (transform/opacity only — phone-safe) */
+  animation: ink-seat-arrive 0.55s var(--ease-out) backwards;
+}
+@keyframes ink-seat-arrive { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
+.ink-seat-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ink-seat-await { font-style: italic; color: rgba(74, 66, 56, 0.5); font-size: 0.85rem; }
+.ink-seat-empty {
+  border: 1px dashed rgba(74, 66, 56, 0.32);
+  color: rgba(74, 66, 56, 0.5);
+}
+.ink-seat-offline { opacity: 0.55; }
+.ink-seat-offline-tag { font-size: 0.72rem; font-style: italic; color: var(--ink-soft); }
+/* the brush stroke that writes the warrior in — draws on the plate's arrival */
+.ink-seat-brush {
+  position: absolute; left: 0.6em; right: 0.6em; bottom: 3px;
+  height: 8px; pointer-events: none; overflow: visible;
+}
+.ink-seat-brush-stroke {
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  opacity: 0.5;
+  animation: ink-draw 0.6s var(--ease-out) 0.15s backwards;
+}
+.ink-seat-tag {
+  flex-shrink: 0;
+  font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 9px;
+}
+.ink-seat-tag-host { background: rgba(201, 155, 46, 0.2); color: #7a5c12; border: 1px solid rgba(201, 155, 46, 0.6); }
+.ink-seat-tag-you { background: rgba(46, 82, 102, 0.14); color: var(--indigo); border: 1px solid rgba(46, 82, 102, 0.5); }
+
+/* begin CTA — the vermilion hanko, stamped promptly (not on home's 2.2s cue) */
+.ink-begin-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 0.2rem; }
+.ink-begin { width: auto; min-width: 230px; align-self: center; animation-delay: 0.45s; }
+.ink-begin-hint { margin: 0; font-size: 0.9rem; font-style: italic; text-align: center; color: rgba(74, 66, 56, 0.8); }
+.ink-begin-ready { color: var(--crimson); opacity: 0.95; font-style: normal; letter-spacing: 0.02em; }
+.ink-waiting { margin: 0; font-style: italic; text-align: center; color: rgba(74, 66, 56, 0.85); }
+
+/* a disabled seal reads as un-inked: dimmed, no lift, no press bloom */
+.ink-seal:disabled { opacity: 0.42; cursor: default; }
+.ink-seal:disabled:active { transform: scale(1) rotate(0deg); }
+.ink-seal:disabled:active::after { animation: none; }
+@media (hover: hover) {
+  .ink-seal:disabled:hover { transform: none; }
+}
+
+/* a quiet brushed-outline text button — leave / cancel */
+.ink-ghost {
+  align-self: center;
+  min-height: 44px;
+  padding: 0.5em 1.4em;
+  border: 1px solid rgba(74, 66, 56, 0.4); border-radius: 3px;
+  background: transparent;
+  font-family: var(--font-latin); font-style: italic; font-size: 1rem;
+  color: rgba(74, 66, 56, 0.9);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  animation: ink-rise 0.7s var(--ease-out) 0.5s backwards;
+}
+.ink-ghost:hover { border-color: rgba(143, 29, 44, 0.6); color: var(--crimson); background: rgba(195, 40, 47, 0.05); }
+.ink-ghost:focus-visible { outline: 2px solid rgba(143, 29, 44, 0.8); outline-offset: 3px; }
+
+/* ---------- lobby / connecting — phones ---------- */
+@media (max-width: 640px) {
+  .ink-lobby { padding: 1.6rem 1.05rem 2.8rem; gap: 1.05rem; max-width: 100%; }
+  .ink-panel { padding: 1rem 0.95rem 1.05rem; backdrop-filter: none; }
+  .ink-summons-row { flex-direction: column; gap: 1rem; }
+  .ink-code-plate { min-width: 180px; min-height: 66px; }
+  .ink-code-hero { font-size: 2.1rem; }
+  .ink-summons-hint { max-width: 26ch; }
+  /* one column reads cleanly on a narrow phone; the page scrolls */
+  .ink-seats { grid-template-columns: 1fr; }
+  .ink-begin { width: 100%; min-width: 0; max-width: 320px; }
+  .ink-connecting { padding: 1.6rem 1.1rem; }
+
+  /* perf: phones skip displacement filters here too */
+  .ink-lobby-rule-stroke, .ink-code-frame-stroke, .ink-seat-brush-stroke,
+  .ink-spinner-stroke { filter: none; }
 }
