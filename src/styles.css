@@ -103,7 +103,13 @@ body {
     linear-gradient(180deg, rgba(46, 82, 102, 0.05), rgba(122, 46, 26, 0.07));
 }
 
-.app > *:not(.scene) { position: relative; z-index: 1; }
+/* Promotes in-flow screens above the fixed .scene backdrop. TRAP: this has
+   specificity (0,2,0), so it silently overrides `position: fixed` on any
+   direct child of .app styled with a lone class. Every fixed-position direct
+   child MUST be excluded here AND re-fixed via an `.app > .x` rule. Prefer
+   mounting floating UI inside .game/.home instead of as an .app child. */
+.app > *:not(.scene):not(.sound-toggle) { position: relative; z-index: 1; }
+.app > .sound-toggle { position: fixed; }
 
 /* ================= embers ================= */
 
@@ -697,6 +703,45 @@ body {
 
 .seat-harmless { filter: saturate(0.25) brightness(0.88) contrast(0.95); }
 
+/* while aiming a card: seats you cannot reach fade out of consideration */
+.seat-outofreach { filter: saturate(0.2) brightness(0.7); }
+
+/* role badges — revealed roles always carry text, never a lone glyph */
+.seat-role-badge {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 0 8px;
+  border-radius: 9px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+.role-badge-shogun {
+  background: linear-gradient(180deg, #f3dc8a, #c99b2e);
+  color: #4a3405;
+  border: 1px solid #8a6410;
+  box-shadow: 0 0 10px rgba(243, 220, 138, 0.35);
+}
+.role-badge-ninja {
+  background: linear-gradient(180deg, #a93744, #7c1b2d);
+  color: var(--washi);
+  border: 1px solid #4a0f18;
+}
+.role-badge-ronin {
+  background: linear-gradient(180deg, #3f6d88, #2e5266);
+  color: var(--washi);
+  border: 1px solid #16303f;
+}
+.role-badge-hidden {
+  background: rgba(24, 17, 10, 0.12);
+  color: var(--ink-soft);
+  border: 1px dashed rgba(33, 28, 22, 0.4);
+}
+.role-badge-large { font-size: 0.85rem; padding: 3px 14px; }
+
 .seat-impact {
   position: absolute;
   inset: -12px;
@@ -942,32 +987,37 @@ body {
   color: var(--ink);
 }
 
-/* hanko seals */
-.card-seal {
+/* weapon stats — reach chip (indigo, matches the seat difficulty chip) vs
+   blood drops for wounds: different icon, color and corner, never confusable */
+.card-stat {
   position: absolute;
-  width: 25px; height: 25px;
-  border-radius: 26%;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
   font-weight: 700;
-  font-size: 0.95rem;
+}
+.card-stat-reach {
+  top: 24px; left: 7px;
+  gap: 3px;
+  padding: 1px 7px 1px 5px;
+  border-radius: 9px;
+  font-size: 0.8rem;
+  background: linear-gradient(180deg, #3f6d88, var(--indigo));
+  border: 1px solid rgba(246, 237, 214, 0.55);
   color: var(--washi);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  filter: url(#rough-ink);
 }
-.card-difficulty {
-  top: 24px; left: 8px;
-  transform: rotate(-5deg);
-  background: radial-gradient(circle at 65% 30%, #d24252, #8f1d2c);
+.stat-icon { width: 11px; height: 11px; }
+.card-stat-damage {
+  bottom: 24px; right: 8px;
+  gap: 1px;
+  color: #8f1d2c;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
 }
-.card-damage {
-  bottom: 26px; right: 7px;
-  transform: rotate(4deg);
-  background: radial-gradient(circle at 65% 30%, #4a4238, #17120d);
-}
-.card-mini .card-seal { width: 14px; height: 14px; font-size: 0.58rem; filter: none; }
-.card-mini .card-difficulty { top: 2px; left: 2px; }
-.card-mini .card-damage { bottom: 2px; right: 2px; }
+.stat-drop { width: 10px; height: 14px; }
+.card-mini .card-stat-reach { top: 2px; left: 2px; font-size: 0.56rem; padding: 0 4px 0 3px; gap: 1px; }
+.card-mini .stat-icon { width: 7px; height: 7px; }
+.card-mini .card-stat-damage { bottom: 2px; right: 2px; }
+.card-mini .stat-drop { width: 6px; height: 9px; }
 
 .card-corner-hint {
   position: absolute;
@@ -1171,6 +1221,98 @@ body {
   font-size: 0.95rem;
   backdrop-filter: blur(3px);
 }
+
+/* ================= full-screen card inspect ================= */
+
+.inspect-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55; /* above prompt modals (50) so SeatInfoModal can open cards */
+  background: rgba(10, 6, 4, 0.62);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+  animation: fade-in 150ms ease-out;
+}
+.inspect-sheet {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  max-width: 94vw;
+  animation: inspect-open 180ms var(--ease-out);
+}
+@keyframes inspect-open {
+  from { opacity: 0; transform: scale(0.92) translateY(8px); }
+}
+.inspect-card {
+  width: 206px;
+  height: 297px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 26px 34px rgba(0, 0, 0, 0.6));
+}
+.inspect-card .card { transform: scale(1.9); transform-origin: top left; }
+.inspect-body {
+  width: min(320px, 44vw);
+  background:
+    var(--washi-fiber),
+    var(--washi-grain),
+    linear-gradient(170deg, #f6edd6 0%, #e6d7b4 100%);
+  background-blend-mode: multiply, multiply, normal;
+  border: 1px solid rgba(28, 18, 10, 0.85);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 1px rgba(201, 155, 46, 0.35),
+    inset 0 0 18px rgba(60, 40, 15, 0.12),
+    var(--shadow-soft), var(--shadow-far);
+  padding: 16px 18px;
+  text-align: left;
+  color: var(--ink);
+}
+.inspect-body p { margin: 10px 0 0; font-size: 1rem; line-height: 1.55; color: var(--ink-soft); }
+.inspect-type {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--washi);
+  background: var(--ink-soft);
+}
+.inspect-type-weapon { background: #8f1d2c; }
+.inspect-type-action { background: #9a7412; }
+.inspect-type-property { background: #2e5266; }
+.inspect-stats {
+  margin: 10px 0 0;
+  padding-left: 1.1em;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.inspect-blocked { font-size: 0.9rem; font-style: italic; color: var(--crimson); }
+.inspect-actions {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ================= seat info (tap a seat) ================= */
+
+.seat-info { max-width: min(92vw, 480px); text-align: left; align-items: stretch; }
+.seat-info h2 { text-align: center; }
+.info-section { border-top: 1px solid rgba(60, 40, 15, 0.25); padding: 12px 2px; }
+.info-section h3 { margin: 0; font-size: 1.05rem; font-weight: 500; }
+.info-section p { margin: 6px 0 0; font-size: 1rem; line-height: 1.5; color: var(--ink-soft); }
+.info-hint { font-style: italic; opacity: 0.85; }
+.info-section .info-meta { font-size: 0.85rem; opacity: 0.9; }
+.info-property { cursor: pointer; }
+.info-property:hover strong { color: var(--crimson); }
+.seat-info > .btn { align-self: center; margin-top: 10px; }
+
+.leave-btn { margin-left: auto; }
 
 /* ================= modals — unfurling scrolls ================= */
 

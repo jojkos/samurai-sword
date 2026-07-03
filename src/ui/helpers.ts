@@ -1,5 +1,5 @@
 import { CARD_DEFS } from '../engine/cards'
-import type { Card, CharacterId, PlayerView, RoleId } from '../engine/types'
+import type { Card, CardKind, CharacterId, PlayerView, RoleId } from '../engine/types'
 
 export const CHARACTER_KANJI: Record<CharacterId, string> = {
   benkei: '弁慶', chiyome: '千代女', ginchiyo: '誾千代', goemon: '五右衛門',
@@ -21,6 +21,57 @@ export const TEAM_LABEL: Record<string, string> = {
   shogun: 'Shogun & Samurai',
   ninja: 'Ninja',
   ronin: 'Rōnin',
+}
+
+const SAMURAI_GOAL =
+  'Secret bodyguard of the Shogun. Samurai win (and lose) together with the Shogun as one team.'
+const NINJA_GOAL =
+  'Secret rival clan. The Ninja win if, when the game ends, they hold more honor than the Shogun’s side.'
+
+export const ROLE_GOAL: Record<RoleId, string> = {
+  shogun:
+    'Plays face-up and leads the defense. Wins together with the Samurai if their team holds the most honor when the game ends.',
+  samurai1: SAMURAI_GOAL,
+  samurai2: SAMURAI_GOAL,
+  ninja1: NINJA_GOAL,
+  ninja2: NINJA_GOAL,
+  ninja3: NINJA_GOAL,
+  ronin:
+    'Fights alone. The Rōnin’s honor counts double or triple in the final score — but he only wins if he beats every team by himself.',
+}
+
+export const HIDDEN_ROLE_TEXT =
+  'This warrior’s role is secret — a Samurai, a Ninja, or the Rōnin. Only the Shogun plays face-up; everyone else is revealed when the game ends.'
+
+/** Starting honor for a seat — pure view math, so lost honor can render as empty sockets. */
+export function baseHonor(view: PlayerView, seat: number): number {
+  const isShogun =
+    seat === view.seat ? view.you.role === 'shogun' : view.players[seat].role === 'shogun'
+  if (view.playerCount === 3) return isShogun ? 6 : 3
+  if (isShogun) return 5
+  return view.playerCount <= 5 ? 3 : 4
+}
+
+/** Weapon stats spelled out in plain language for the inspect panel. */
+export function weaponStatLines(def: { difficulty?: number; damage?: number }): string[] {
+  if (def.difficulty == null || def.damage == null) return []
+  return [
+    `Reach ${def.difficulty} — hits players up to difficulty ${def.difficulty}; Armor and Benkei make a target harder to reach`,
+    `Wounds ${def.damage} — damage dealt when the hit lands`,
+  ]
+}
+
+/* Card names sorted longest-first so "Battle Cry" wins over any shorter overlap. */
+const NAMED_KINDS = (Object.keys(CARD_DEFS) as CardKind[]).sort(
+  (a, b) => CARD_DEFS[b].name.length - CARD_DEFS[a].name.length,
+)
+
+/** The card a chronicle line talks about, if any — drives the play showcase. */
+export function cardKindInText(text: string): CardKind | null {
+  for (const kind of NAMED_KINDS) {
+    if (text.includes(CARD_DEFS[kind].name)) return kind
+  }
+  return null
 }
 
 /** Distance between two seats, skipping harmless intermediates (mirrors the engine). */

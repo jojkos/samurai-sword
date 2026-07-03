@@ -3,15 +3,30 @@ import { CARD_DEFS, CHARACTERS } from '../engine/cards'
 import type { Card, Pending, PlayerView, PublicPlayer } from '../engine/types'
 import type { Session } from '../net/session'
 import { CardBack, CardFace, CharacterPlate, Tokens } from './Cards'
-import { cardAction, ROLE_INFO, TEAM_LABEL, viewAttackDifficulty, type TargetMode } from './helpers'
+import {
+  baseHonor,
+  cardAction,
+  cardKindInText,
+  CHARACTER_KANJI,
+  HIDDEN_ROLE_TEXT,
+  ROLE_GOAL,
+  ROLE_INFO,
+  TEAM_LABEL,
+  viewAttackDifficulty,
+  weaponStatLines,
+  type TargetMode,
+} from './helpers'
 import { sound } from './sound'
 
 export function GameScreen(props: { view: PlayerView; session: Session; onLeave: () => void }) {
   const { view, session } = props
   const [targetMode, setTargetMode] = useState<TargetMode | null>(null)
   const [geishaSeat, setGeishaSeat] = useState<number | null>(null)
-  const [showRole, setShowRole] = useState(false)
+  const [inspect, setInspect] = useState<Card | null>(null)
+  const [infoSeat, setInfoSeat] = useState<number | null>(null)
   const [blocked, setBlocked] = useState<string | null>(null)
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  const touch = useTouchDevice()
   const [impact, setImpact] = useState<{ seat: number; n: number } | null>(null)
   const prevView = useRef(view)
 
@@ -73,6 +88,18 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   }, [blocked])
 
   function clickHandCard(card: Card) {
+    // touch: no hover exists, so the first tap opens the inspect sheet and the
+    // Play button (or a second tap on the same card) commits the action
+    if (touch && inspect?.id !== card.id) {
+      sound.uiClick()
+      setInspect(card)
+      return
+    }
+    setInspect(null)
+    actOn(card)
+  }
+
+  function actOn(card: Card) {
     if (!myTurn) return
     if (targetMode?.card.id === card.id) {
       setTargetMode(null)
@@ -95,7 +122,12 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   }
 
   function clickSeat(seat: number) {
-    if (!targetMode) return
+    if (!targetMode) {
+      // not aiming anything — a tap on a seat explains that warrior instead
+      sound.uiClick()
+      setInfoSeat(seat)
+      return
+    }
     if (!targetMode.targets.includes(seat)) {
       const target = view.players[seat]
       const def = CARD_DEFS[targetMode.card.kind]
@@ -176,7 +208,12 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
               {view.discardTop ? (
                 <>
                   {view.discardCount > 1 && <span className="pile-edges" aria-hidden="true" />}
-                  <CardFace card={view.discardTop} size="mini" />
+                  <CardFace
+                    key={view.discardTop.id}
+                    card={view.discardTop}
+                    size="mini"
+                    onClick={() => setInspect(view.discardTop)}
+                  />
                 </>
               ) : (
                 <div className="pile-empty" />
@@ -195,6 +232,7 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
               isTurn={view.turnSeat === p.seat && view.phase === 'play'}
               targetable={!!targetMode?.targets.includes(p.seat)}
               hit={impact?.seat === p.seat ? impact.n : 0}
+              aiming={targetMode !== null}
               waiting={view.waitingFor === p.seat}
               difficulty={
                 targetMode?.kind === 'weapon' && p.seat !== view.seat && !p.harmless
@@ -202,12 +240,18 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
                   : null
               }
               onClick={() => clickSeat(p.seat)}
+              onInspectCard={(c) => setInspect(c)}
             />
           ))}
         </div>
       </div>
 
-      <StatusBar view={view} myTurn={myTurn} showRole={showRole} setShowRole={setShowRole} />
+      <StatusBar
+        view={view}
+        myTurn={myTurn}
+        onShowRole={() => setInfoSeat(view.seat)}
+        onLeave={() => setConfirmLeave(true)}
+      />
 
       {blocked && <div className="toast toast-info">{blocked}</div>}
       {targetMode && (
@@ -238,6 +282,46 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
         />
       )}
 
+      {infoSeat !== null && (
+        <SeatInfoModal
+          view={view}
+          seat={infoSeat}
+          onInspect={(card) => setInspect(card)}
+          onClose={() => setInfoSeat(null)}
+        />
+      )}
+
+      {inspect && (
+        <InspectOverlay
+          card={inspect}
+          view={view}
+          myTurn={myTurn}
+          onPlay={() => {
+            const c = inspect
+            setInspect(null)
+            actOn(c)
+          }}
+          onClose={() => setInspect(null)}
+        />
+      )}
+
+      {confirmLeave && (
+        <div className="modal-backdrop" onClick={() => setConfirmLeave(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Leave the duel?</h2>
+            <p>
+              {session.startGame
+                ? 'You are the host — leaving closes the room for everyone.'
+                : 'Your seat stays at the table; you can rejoin this room with the same name while the duel lasts.'}
+            </p>
+            <div className="result-actions">
+              <button className="btn btn-danger" onClick={props.onLeave}>Leave</button>
+              <button className="btn" onClick={() => setConfirmLeave(false)}>Stay</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {view.prompt && <PromptModal view={view} prompt={view.prompt} session={session} />}
       {view.waitingFor !== null && (
         <div className="waiting-banner pulse">
@@ -250,6 +334,20 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
       {view.result && <ResultOverlay view={view} session={session} onLeave={props.onLeave} />}
     </div>
   )
+}
+
+/** True on touch-first devices (no hover); SSR-safe (no matchMedia in node → false). */
+function useTouchDevice() {
+  const [touch, setTouch] = useState(
+    () => typeof matchMedia !== 'undefined' && matchMedia('(hover: none)').matches,
+  )
+  useEffect(() => {
+    const mq = matchMedia('(hover: none)')
+    const onChange = () => setTouch(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return touch
 }
 
 /** True below the phone breakpoint; SSR-safe (no matchMedia in node → false). */
@@ -306,31 +404,38 @@ function Seat(props: {
   isYou: boolean
   isTurn: boolean
   targetable: boolean
+  aiming: boolean
   hit: number
   waiting: boolean
   difficulty: number | null
   onClick: () => void
+  onInspectCard: (card: Card) => void
 }) {
-  const { player: p } = props
+  const { player: p, view } = props
+  // your own role is always known to you; others only when the view reveals it
+  const role = props.isYou ? view.you.role : p.role
   const cls = [
     'seat',
     props.isYou ? 'seat-you' : '',
     props.isTurn ? 'seat-turn' : '',
     props.targetable ? 'seat-targetable' : '',
+    props.aiming && !props.targetable && !props.isYou ? 'seat-outofreach' : '',
     p.harmless ? 'seat-harmless' : '',
   ].join(' ')
   return (
     <div className={cls} style={props.style} onClick={props.onClick}>
       {props.hit > 0 && <div key={props.hit} className="seat-impact" />}
       {props.difficulty !== null && <div className="seat-difficulty">{props.difficulty}</div>}
-      <div className="seat-name">
-        {p.name}
-        {p.role === 'shogun' && <span className="seat-role-tag">将軍</span>}
-      </div>
+      <div className="seat-name">{p.name}</div>
+      {role && (
+        <div className={`seat-role-badge role-badge-${ROLE_INFO[role].team}`}>
+          {ROLE_INFO[role].kanji} {ROLE_INFO[role].name}
+        </div>
+      )}
       <CharacterPlate character={p.character} />
       <div className="seat-tokens">
         <Tokens kind="resilience" value={p.resilience} max={p.maxResilience} />
-        <Tokens kind="honor" value={p.honor} />
+        <Tokens kind="honor" value={p.honor} max={Math.max(baseHonor(view, p.seat), p.honor)} />
       </div>
       {!props.isYou && (
         <div className="seat-handcount" title={`${p.handCount} cards in hand`}>
@@ -339,7 +444,17 @@ function Seat(props: {
       )}
       {p.properties.length > 0 && (
         <div className="seat-properties">
-          {p.properties.map((c) => <CardFace key={c.id} card={c} size="mini" />)}
+          {p.properties.map((c) => (
+            <CardFace
+              key={c.id}
+              card={c}
+              size="mini"
+              onClick={(e) => {
+                e.stopPropagation()
+                props.onInspectCard(c)
+              }}
+            />
+          ))}
         </div>
       )}
       {p.harmless && <div className="seat-harmless-tag">harmless 無害</div>}
@@ -353,8 +468,8 @@ function Seat(props: {
 function StatusBar(props: {
   view: PlayerView
   myTurn: boolean
-  showRole: boolean
-  setShowRole: (b: boolean) => void
+  onShowRole: () => void
+  onLeave: () => void
 }) {
   const { view } = props
   const role = ROLE_INFO[view.you.role]
@@ -362,18 +477,12 @@ function StatusBar(props: {
     <div className="statusbar">
       <button
         className={`role-badge role-${role.team}`}
-        onClick={() => props.setShowRole(!props.showRole)}
-        title="Your secret role — click to peek"
+        onClick={props.onShowRole}
+        title="Your role — click for what it means"
       >
-        {props.showRole ? (
-          `${role.kanji} ${role.name}`
-        ) : (
-          <>
-            <span className="role-glyph">役</span>secret role
-          </>
-        )}
+        <span className="role-glyph">{role.kanji}</span>
+        {role.name}
       </button>
-      {props.showRole && <span className="role-team">team: {TEAM_LABEL[role.team]}</span>}
       <span className={`turn-indicator ${props.myTurn ? 'turn-yours' : ''}`}>
         {view.phase === 'ended'
           ? 'the duel is over'
@@ -386,6 +495,139 @@ function StatusBar(props: {
           weapons {view.weaponsPlayed}/{view.weaponsAllowed}
         </span>
       )}
+      <button className="role-badge leave-btn" onClick={props.onLeave} title="Leave the duel">
+        leave 退
+      </button>
+    </div>
+  )
+}
+
+/** Full-screen card inspect: any card, readable, with plain-language rules. */
+function InspectOverlay(props: {
+  card: Card
+  view: PlayerView
+  myTurn: boolean
+  onPlay: () => void
+  onClose: () => void
+}) {
+  const def = CARD_DEFS[props.card.kind]
+  const inHand = props.view.you.hand.some((c) => c.id === props.card.id)
+  let canPlay = false
+  let blockedReason: string | null = null
+  if (inHand) {
+    if (!props.myTurn) blockedReason = 'Not your turn'
+    else {
+      const action = cardAction(props.view, props.card)
+      if ('blocked' in action) blockedReason = action.blocked
+      else canPlay = true
+    }
+  }
+  return (
+    <div className="inspect-backdrop" onClick={props.onClose}>
+      <div className="inspect-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="inspect-card">
+          <CardFace card={props.card} />
+        </div>
+        <div className="inspect-body">
+          <div className="card-inspect-name">
+            {def.name}
+            <span className="card-inspect-kanji">{def.kanji}</span>
+          </div>
+          <span className={`inspect-type inspect-type-${def.type}`}>{def.type}</span>
+          {def.type === 'weapon' && (
+            <ul className="inspect-stats">
+              {weaponStatLines(def).map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          )}
+          <p>{def.text}</p>
+          <div className="inspect-actions">
+            {canPlay && (
+              <button className="btn btn-primary" onClick={props.onPlay}>
+                Play
+              </button>
+            )}
+            {blockedReason && <span className="inspect-blocked">{blockedReason}</span>}
+            <button className="btn btn-ghost" onClick={props.onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Everything about one warrior, spelled out — tap any seat to open. */
+function SeatInfoModal(props: {
+  view: PlayerView
+  seat: number
+  onInspect: (card: Card) => void
+  onClose: () => void
+}) {
+  const { view, seat } = props
+  const p = view.players[seat]
+  const isYou = seat === view.seat
+  const role = isYou ? view.you.role : p.role
+  const char = CHARACTERS[p.character]
+  return (
+    <div className="modal-backdrop" onClick={props.onClose}>
+      <div className="modal seat-info" onClick={(e) => e.stopPropagation()}>
+        <h2>
+          {p.name}
+          {isYou ? ' — you' : ''}
+        </h2>
+
+        <div className="info-section">
+          {role ? (
+            <>
+              <span className={`seat-role-badge role-badge-${ROLE_INFO[role].team} role-badge-large`}>
+                {ROLE_INFO[role].kanji} {ROLE_INFO[role].name}
+              </span>
+              <p>{ROLE_GOAL[role]}</p>
+              {isYou && role !== 'shogun' && (
+                <p className="info-hint">Only you can see this. Keep it secret.</p>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="seat-role-badge role-badge-hidden">役 secret role</span>
+              <p>{HIDDEN_ROLE_TEXT}</p>
+            </>
+          )}
+        </div>
+
+        <div className="info-section">
+          <h3>
+            <span className="char-kanji">{CHARACTER_KANJI[p.character]}</span> {char.name}
+          </h3>
+          <p>{char.text}</p>
+          <p className="info-meta">
+            Resilience {p.resilience}/{p.maxResilience} · Honor {p.honor} · {p.handCount} card
+            {p.handCount === 1 ? '' : 's'} in hand
+            {p.harmless ? ' · Harmless (cannot be attacked, does not count for distance)' : ''}
+          </p>
+          {!isYou && !p.harmless && (
+            <p className="info-meta">
+              Attack difficulty from you: {viewAttackDifficulty(view, view.seat, seat)}
+            </p>
+          )}
+        </div>
+
+        {p.properties.length > 0 && (
+          <div className="info-section">
+            <h3>In play</h3>
+            {p.properties.map((c) => (
+              <p key={c.id} className="info-property" onClick={() => props.onInspect(c)}>
+                <strong>{CARD_DEFS[c.kind].name}</strong> — {CARD_DEFS[c.kind].text}
+              </p>
+            ))}
+          </div>
+        )}
+
+        <button className="btn" onClick={props.onClose}>Close</button>
+      </div>
     </div>
   )
 }
