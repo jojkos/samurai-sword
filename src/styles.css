@@ -1018,20 +1018,32 @@ body {
   color: var(--washi);
 }
 
+/* HUD tags share the carved-paper language of the chronicle toggle — hand-cut
+   corners + a brushed vermilion edge — rather than reading as web-app pills */
 .role-badge {
   font-family: inherit;
   font-size: 0.9rem;
   letter-spacing: 0.03em;
-  padding: 0.42em 1.1em;
-  border-radius: 20px;
-  border: 1px solid rgba(242, 232, 207, 0.35);
+  padding: 0.4em 1em;
+  border-radius: 13px 5px 12px 6px;
+  border: 1px solid rgba(242, 232, 207, 0.28);
+  border-left: 2px solid rgba(195, 40, 47, 0.6);
   background: rgba(12, 7, 4, 0.55);
   color: var(--washi);
   cursor: pointer;
   box-shadow: var(--shadow-contact);
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(2px);
 }
 .role-badge:hover { border-color: rgba(243, 220, 138, 0.6); }
+/* leaving is a quiet, out-of-the-way affordance — no vermilion call for it */
+.leave-btn {
+  margin-left: auto;
+  border-radius: 5px 12px 6px 13px;
+  border-left: 1px solid rgba(242, 232, 207, 0.28);
+  border-right: 2px solid rgba(150, 120, 90, 0.5);
+  opacity: 0.82;
+}
+.leave-btn:hover { opacity: 1; }
 .role-glyph {
   font-family: var(--font-kanji);
   color: var(--gold-bright);
@@ -1356,8 +1368,6 @@ body {
 .info-property { cursor: pointer; }
 .info-property:hover strong { color: var(--crimson); }
 .seat-info > .ink-seal { align-self: center; margin-top: 10px; }
-
-.leave-btn { margin-left: auto; }
 
 /* ================= modals — unfurling scrolls ================= */
 
@@ -1980,11 +1990,14 @@ body {
 
   .toast { max-width: 92vw; font-size: 0.85rem; text-align: center; }
 
-  .statusbar { top: 8px; left: 8px; gap: 8px; row-gap: 2px; flex-wrap: wrap; max-width: calc(100vw - 120px); }
+  /* statusbar hugs the left, the chronicle toggle the right, with a clear gap
+     between so they never overlap (they collided at ~390px before) */
+  .statusbar { top: 8px; left: 8px; gap: 6px; row-gap: 4px; flex-wrap: wrap; max-width: calc(100vw - 152px); }
   .role-badge { font-size: 0.78rem; padding: 0.35em 0.8em; }
+  .leave-btn { margin-left: 0; } /* keep row-2 content left, away from the log */
   .turn-indicator { font-size: 0.8rem; }
   .weapons-left { display: none; }
-  .log { top: 8px; right: 8px; width: min(56vw, 220px); }
+  .log { top: 8px; right: 8px; width: min(52vw, 200px); }
   .log-entries { max-height: 24vh; font-size: 0.72rem; padding: 9px 9px 12px; }
 
   .table-scene { inset: 0 0 78px 0; }
