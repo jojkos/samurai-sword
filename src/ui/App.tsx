@@ -571,35 +571,35 @@ export function App() {
           <section className="ink-panel ink-roster">
             <span className="ink-label ink-label-center">Warriors · {screen.players.length}/7</span>
             <ul className="ink-seats">
-              {Array.from({ length: 7 }, (_, i) => {
-                const p = screen.players[i]
-                if (!p) {
-                  return (
-                    <li key={`empty-${i}`} className="ink-seat ink-seat-empty">
-                      <span className="ink-seat-await">awaiting warrior…</span>
-                    </li>
-                  )
-                }
-                return (
-                  <li
-                    key={p.seat}
-                    className={`ink-seat ink-seat-filled ${p.connected ? '' : 'ink-seat-offline'}`}
-                  >
-                    <span className="ink-seat-name">{p.name}</span>
-                    {p.isHost && <span className="ink-seat-tag ink-seat-tag-host">host</span>}
-                    {p.seat === screen.seat && <span className="ink-seat-tag ink-seat-tag-you">you</span>}
-                    {!p.connected && <span className="ink-seat-offline-tag">offline</span>}
-                    {/* the brush stroke that writes the warrior onto the roster */}
-                    <svg className="ink-seat-brush" viewBox="0 0 300 10" preserveAspectRatio="none" aria-hidden="true">
-                      <path
-                        className="ink-seat-brush-stroke" pathLength="1"
-                        d="M4 6 Q90 2 160 5 Q230 8 296 4"
-                        fill="none" stroke="#26211a" strokeWidth="2.5" strokeLinecap="round"
-                      />
-                    </svg>
-                  </li>
-                )
-              })}
+              {screen.players.map((p) => (
+                <li
+                  key={p.seat}
+                  className={`ink-seat ink-seat-filled ${p.connected ? '' : 'ink-seat-offline'}`}
+                >
+                  <span className="ink-seat-name">{p.name}</span>
+                  {p.isHost && <span className="ink-seat-tag ink-seat-tag-host">host</span>}
+                  {p.seat === screen.seat && <span className="ink-seat-tag ink-seat-tag-you">you</span>}
+                  {!p.connected && <span className="ink-seat-offline-tag">offline</span>}
+                  {/* the brush stroke that writes the warrior onto the roster */}
+                  <svg className="ink-seat-brush" viewBox="0 0 300 10" preserveAspectRatio="none" aria-hidden="true">
+                    <path
+                      className="ink-seat-brush-stroke" pathLength="1"
+                      d="M4 6 Q90 2 160 5 Q230 8 296 4"
+                      fill="none" stroke="#26211a" strokeWidth="2.5" strokeLinecap="round"
+                    />
+                  </svg>
+                </li>
+              ))}
+              {/* one compact "seats open" line instead of 4 empty plates — keeps
+                  the whole lobby above the fold on a phone (capacity is in N/7) */}
+              {screen.players.length < 7 && (
+                <li className="ink-seat ink-seat-empty ink-seat-await-row">
+                  <span className="ink-seat-await">
+                    awaiting {7 - screen.players.length} more warrior
+                    {7 - screen.players.length === 1 ? '' : 's'}…
+                  </span>
+                </li>
+              )}
             </ul>
           </section>
 
