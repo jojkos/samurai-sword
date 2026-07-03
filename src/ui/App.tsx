@@ -60,25 +60,48 @@ export function App() {
     setScreen({ s: 'home' })
   }, [])
 
+  // browser Back mid-duel should ask before it destroys the table (the in-app
+  // Leave button confirms; Back must not be a silent back-door around it)
+  const [backConfirm, setBackConfirm] = useState(false)
+
   /** Reflect "in a room" in the URL as its own history entry, so browser Back
    * pops out of the room. pushState keeps the in-memory PeerJS session alive
-   * (no reload), so navigation never drops the connection. */
-  function pushRoomUrl(code: string) {
+   * (no reload), so navigation never drops the connection. On resume/rejoin the
+   * room entry already exists (history survives reload) — replace it instead of
+   * pushing a duplicate, which otherwise made the first Back a silent no-op. */
+  function pushRoomUrl(code: string, replace = false) {
     try {
-      history.pushState({ inRoom: true, code }, '', `?room=${code}`)
+      const state = { inRoom: true, code }
+      if (replace) history.replaceState(state, '', `?room=${code}`)
+      else history.pushState(state, '', `?room=${code}`)
     } catch {
       /* history unavailable — non-fatal */
     }
   }
 
-  // Back/forward: leaving the room entry tears the session down; going forward
-  // into a room already left just keeps the URL honest (can't resurrect it).
+  // Back/forward: leaving the room entry returns to the gate. Mid-duel that is
+  // destructive (the host closes the table for everyone), so intercept it with
+  // a confirm and re-pin the room entry; otherwise tear down cleanly. Also
+  // clears a lingering "disconnected" modal so Back is never a dead end.
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
       const inRoom = !!(e.state && (e.state as { inRoom?: boolean }).inRoom)
-      if (!inRoom && sessionRef.current) {
-        teardown()
-      } else if (inRoom && !sessionRef.current) {
+      if (!inRoom) {
+        const live = sessionRef.current
+        if (live && screenRef.current.s === 'game') {
+          // undo the Back and ask — mirrors the in-game Leave confirm
+          pushRoomUrl(live.code)
+          setBackConfirm(true)
+        } else if (live) {
+          teardown()
+        } else {
+          // no session (e.g. after a disconnect) — just return home cleanly
+          setDead(null)
+          setView(null)
+          setScreen({ s: 'home' })
+        }
+      } else if (!sessionRef.current) {
+        // forward into a room we can't resurrect — keep the URL honest
         try {
           history.replaceState({ inRoom: false }, '', location.pathname)
         } catch { /* non-fatal */ }
@@ -151,7 +174,7 @@ export function App() {
       const session = new GuestSession(room.code, room.name, events())
       sessionRef.current = session
       setScreen({ s: 'connecting', code: session.code })
-      pushRoomUrl(session.code)
+      pushRoomUrl(session.code, true) // resuming: the room history entry already exists
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -200,7 +223,7 @@ export function App() {
     const session = new HostSession(save.roster.names[0], events(), save)
     sessionRef.current = session
     setScreen({ s: 'connecting', code: session.code })
-    pushRoomUrl(session.code)
+    pushRoomUrl(session.code, true) // resuming: the room history entry already exists
   }
 
   function joinRoom() {
@@ -282,6 +305,35 @@ export function App() {
               <span className="ink-seal-kanji" aria-hidden="true">戻</span>
               <span className="ink-seal-text">Back to the gate</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {backConfirm && (
+        <div className="modal-backdrop" onClick={() => setBackConfirm(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Leave the duel?</h2>
+            <p>
+              {sessionRef.current instanceof HostSession
+                ? 'You are the host — leaving closes the table for everyone.'
+                : 'Your seat stays at the table; you can rejoin this room with the same name while the duel lasts.'}
+            </p>
+            <div className="result-actions">
+              <button
+                className="ink-seal ink-seal-blood ink-seal-live"
+                onClick={() => {
+                  setBackConfirm(false)
+                  leave()
+                }}
+              >
+                <span className="ink-seal-kanji" aria-hidden="true">退</span>
+                <span className="ink-seal-text">Leave</span>
+              </button>
+              <button className="ink-seal ink-seal-ink ink-seal-live" onClick={() => setBackConfirm(false)}>
+                <span className="ink-seal-kanji" aria-hidden="true">留</span>
+                <span className="ink-seal-text">Stay</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -47,6 +47,9 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [floaters, setFloaters] = useState<Floater[]>([])
   const floaterKey = useRef(0)
+  // floater-clear timers, cancelled on unmount so none fire after leave/death
+  const floaterTimers = useRef<ReturnType<typeof setTimeout>[]>([])
+  useEffect(() => () => floaterTimers.current.forEach(clearTimeout), [])
   const [turnFlash, setTurnFlash] = useState(0)
   // fresh games have a near-empty log; a mid-game rejoin must not replay the ceremony
   const [ceremony, setCeremony] = useState(() => view.log.length < 8)
@@ -91,7 +94,8 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
     }
     if (drops.length) {
       setFloaters((f) => [...f, ...drops])
-      setTimeout(() => setFloaters((f) => f.filter((x) => !drops.includes(x))), 1500)
+      const t = setTimeout(() => setFloaters((f) => f.filter((x) => !drops.includes(x))), 1500)
+      floaterTimers.current.push(t)
     }
     for (let i = prev.log.length; i < view.log.length; i++) {
       if (/parr/i.test(view.log[i].text)) {
