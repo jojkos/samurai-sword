@@ -19,6 +19,9 @@ type Screen =
   | { s: 'lobby'; players: LobbyPlayer[]; code: string; seat: number }
   | { s: 'game' }
 
+/** kanji numerals for the seven lobby seats — 一 through 七 */
+const SEAT_KANJI = ['一', '二', '三', '四', '五', '六', '七']
+
 export function App() {
   const [screen, setScreen] = useState<Screen>({ s: 'home' })
   const [view, setView] = useState<PlayerView | null>(null)
@@ -29,6 +32,9 @@ export function App() {
     () => new URLSearchParams(location.search).get('join')?.toUpperCase() ?? '',
   )
   const [soundOn, setSoundOn] = useState(() => sound.isEnabled())
+  // transient "copied" confirmation on the lobby's copy-link button
+  const [copied, setCopied] = useState(false)
+  const copyTimer = useRef<number | null>(null)
   // inline field affordance mirroring the error toast (name / room code)
   const [fieldError, setFieldError] = useState<{ field: 'name' | 'code'; msg: string } | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -153,6 +159,13 @@ export function App() {
     setScreen({ s: 'connecting', code: session.code })
   }
 
+  function copyInvite(code: string) {
+    navigator.clipboard?.writeText(`${location.origin}${location.pathname}?join=${code}`)
+    setCopied(true)
+    if (copyTimer.current) clearTimeout(copyTimer.current)
+    copyTimer.current = window.setTimeout(() => setCopied(false), 1800)
+  }
+
   function leave() {
     // a deliberate exit from the lobby/game closes the room for good; cancelling
     // a connection attempt keeps the save so a reload can still resume it
@@ -161,6 +174,7 @@ export function App() {
     sessionRef.current = null
     setView(null)
     setDead(null)
+    setCopied(false)
     setScreen({ s: 'home' })
   }
 
@@ -278,25 +292,32 @@ export function App() {
         <div className="home">
           <h1 className="home-title"><span className="home-kanji">侍</span>Samurai Sword</h1>
           <div className="home-panel lobby-panel">
-            <span className="home-label">Room code — share it with your clan</span>
-            <div className="lobby-code">
-              <strong className="lobby-code-hero">{screen.code}</strong>
-              <button
-                className="btn btn-ghost btn-small"
-                onClick={() => navigator.clipboard?.writeText(`${location.origin}${location.pathname}?join=${screen.code}`)}
-                title="Copy invite link"
-              >
-                copy link
-              </button>
+            <div className="lobby-invite">
+              <span className="lobby-invite-label">招 · Summon your clan</span>
+              <div className="lobby-invite-row">
+                <div className="lobby-invite-code">
+                  <strong className="lobby-code-hero">{screen.code}</strong>
+                  <span className="lobby-invite-hint">speak the code, or share the link</span>
+                  <button
+                    className={`btn btn-small lobby-copy ${copied ? 'lobby-copy-done' : ''}`}
+                    onClick={() => copyInvite(screen.code)}
+                    title="Copy invite link"
+                    aria-live="polite"
+                  >
+                    {copied ? '✓ link copied' : 'copy invite link'}
+                  </button>
+                </div>
+                <JoinQr code={screen.code} />
+              </div>
             </div>
-            <JoinQr code={screen.code} />
-            <span className="home-label">Warriors {screen.players.length}/7</span>
+            <span className="home-label">Warriors · {screen.players.length}/7</span>
             <ul className="lobby-slots">
               {Array.from({ length: 7 }, (_, i) => {
                 const p = screen.players[i]
                 if (!p) {
                   return (
                     <li key={`empty-${i}`} className="lobby-slot lobby-slot-empty">
+                      <span className="lobby-slot-num" aria-hidden="true">{SEAT_KANJI[i]}</span>
                       awaiting warrior…
                     </li>
                   )
@@ -306,6 +327,7 @@ export function App() {
                     key={p.seat}
                     className={`lobby-slot lobby-slot-filled ${p.connected ? '' : 'lobby-offline'}`}
                   >
+                    <span className="lobby-slot-num" aria-hidden="true">{SEAT_KANJI[i]}</span>
                     <span className="lobby-slot-name">{p.name}</span>
                     {p.isHost && <span className="lobby-tag lobby-tag-host">host</span>}
                     {p.seat === screen.seat && <span className="lobby-tag lobby-tag-you">you</span>}
@@ -315,15 +337,25 @@ export function App() {
               })}
             </ul>
             {session.startGame ? (
-              screen.players.length < 3 ? (
-                <p className="lobby-waiting pulse">
-                  Awaiting more warriors… ({screen.players.length}/3 minimum)
-                </p>
-              ) : (
-                <button className="btn btn-primary lobby-begin" onClick={() => session.startGame!()}>
-                  Begin the duel ({screen.players.length} players)
+              <div className="lobby-begin-wrap">
+                <button
+                  className="btn btn-primary lobby-begin"
+                  disabled={screen.players.length < 3}
+                  onClick={() => session.startGame!()}
+                >
+                  Begin the duel
                 </button>
-              )
+                {screen.players.length < 3 ? (
+                  <p className="lobby-begin-hint pulse">
+                    A duel needs at least 3 warriors — awaiting{' '}
+                    {3 - screen.players.length === 1 ? 'one more' : `${3 - screen.players.length} more`}…
+                  </p>
+                ) : (
+                  <p className="lobby-begin-hint lobby-begin-ready">
+                    {screen.players.length} warriors stand ready.
+                  </p>
+                )}
+              </div>
             ) : (
               <p className="lobby-waiting pulse">Waiting for the host to begin…</p>
             )}
