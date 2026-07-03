@@ -274,10 +274,14 @@ export function App() {
 
       {dead && (
         <div className="modal-backdrop">
-          <div className="modal">
-            <h2>Disconnected</h2>
+          <div className="modal modal-severed">
+            <div className="modal-kanji" aria-hidden="true">絶</div>
+            <h2>The thread is cut</h2>
             <p>{dead}</p>
-            <button className="btn" onClick={leave}>Back</button>
+            <button className="ink-seal ink-seal-ink ink-seal-live" onClick={leave}>
+              <span className="ink-seal-kanji" aria-hidden="true">戻</span>
+              <span className="ink-seal-text">Back to the gate</span>
+            </button>
           </div>
         </div>
       )}
@@ -614,13 +618,21 @@ function JoinQr(props: { code: string }) {
   )
 }
 
-/** Shared SVG filter defs (card frames etc. reference #rough-ink on every screen). */
+/** Shared SVG filter defs, mounted once on every screen so filter refs always
+ * resolve: #rough-ink (card frames) and #ink-brush (hanko seals & brushed
+ * strokes). An unresolved filter ref hides the element, so a globally-mounted
+ * #ink-brush is what lets the night duel's seals carry the same rough edge as
+ * the daylight world without a per-screen copy. */
 function SharedFilterDefs() {
   return (
     <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
       <filter id="rough-ink" x="-8%" y="-8%" width="116%" height="116%">
         <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="3" seed="2" result="n" />
         <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+      <filter id="ink-brush" x="-12%" y="-12%" width="124%" height="124%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="7" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G" />
       </filter>
     </svg>
   )

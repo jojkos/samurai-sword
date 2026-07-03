@@ -1265,7 +1265,7 @@ body {
 .ceremony-char h2 { margin: 0 0 0.3em; font-weight: 500; font-size: 1.15rem; }
 .ceremony .char-kanji { color: #e05a6e; }
 .ceremony-char p { margin: 0; font-size: 1rem; line-height: 1.5; opacity: 0.88; }
-.ceremony .btn { margin-top: 1.2rem; }
+.ceremony .ink-seal { margin-top: 1.2rem; }
 
 /* ================= full-screen card inspect ================= */
 
@@ -1355,7 +1355,7 @@ body {
 .info-section .info-meta { font-size: 0.85rem; opacity: 0.9; }
 .info-property { cursor: pointer; }
 .info-property:hover strong { color: var(--crimson); }
-.seat-info > .btn { align-self: center; margin-top: 10px; }
+.seat-info > .ink-seal { align-self: center; margin-top: 10px; }
 
 .leave-btn { margin-left: auto; }
 
@@ -1407,6 +1407,20 @@ body {
   0% { clip-path: inset(0 0 88% 0); transform: translateY(-10px); }
   100% { clip-path: inset(0 0 0 0); transform: translateY(0); }
 }
+
+/* "the thread is cut" — the disconnect modal, painted rather than a web alert */
+.modal-severed { gap: 4px; max-width: min(90vw, 420px); }
+.modal-severed .modal-kanji {
+  font-family: var(--font-kanji);
+  font-size: 3.2rem;
+  line-height: 1;
+  color: #8f1d2c;
+  filter: url(#ink-brush);
+  margin-bottom: 2px;
+}
+.modal-severed h2 { margin: 0; }
+.modal-severed p { margin: 8px 0 4px; color: var(--ink-soft); }
+.modal-severed .ink-seal { margin-top: 14px; }
 
 /* scroll rods */
 .modal::before, .modal::after {
@@ -2405,6 +2419,19 @@ body {
     inset 0 0 0 4.5px rgba(201, 155, 46, 0.55),
     0 2px 10px rgba(74, 40, 20, 0.35);
 }
+/* danger / accept-the-cost hanko — a darkened oxblood, distinct from the
+   bright vermilion "affirm" seal so "take the wound / leave" reads as harm */
+.ink-seal-blood::before {
+  background:
+    var(--washi-grain),
+    radial-gradient(ellipse at 32% 28%, rgba(255, 255, 255, 0.08), transparent 60%),
+    linear-gradient(160deg, #6e1620 0%, #430c13 100%);
+  background-blend-mode: multiply, normal, normal;
+  box-shadow:
+    inset 0 0 0 3px #4a0e15,
+    inset 0 0 0 4.5px rgba(226, 194, 150, 0.45),
+    0 2px 10px rgba(40, 8, 12, 0.4);
+}
 /* ink bloom rippling out from the press point */
 .ink-seal::after {
   content: '';
@@ -2445,6 +2472,12 @@ body {
       inset 0 0 0 4.5px rgba(201, 155, 46, 0.75),
       0 5px 16px rgba(74, 40, 20, 0.4);
   }
+  .ink-seal-blood:hover::before {
+    box-shadow:
+      inset 0 0 0 3px #4a0e15,
+      inset 0 0 0 4.5px rgba(226, 194, 150, 0.62),
+      0 5px 16px rgba(40, 8, 12, 0.45);
+  }
   .ink-seal:active:hover { transform: scale(0.94) rotate(-0.5deg); }
 }
 .ink-seal:focus-visible, .ink-resume:focus-visible {
@@ -2460,9 +2493,8 @@ body {
   width: auto;
   min-width: 132px;
 }
-/* the duel screen has no InkScene, so #ink-brush isn't mounted — drop the
-   displacement filter here (an unresolved filter ref would hide the stamp) */
-.ink-seal-live::before { filter: none; }
+/* #ink-brush is mounted globally (SharedFilterDefs), so live seals keep the
+   same rough-edged stamp as the daylight world — no filter override needed */
 .ink-seal-sm { min-height: 44px; min-width: 0; padding: 0.32em 0.9em; gap: 7px; }
 .ink-seal-sm .ink-seal-kanji { font-size: 1.15rem; }
 .ink-seal-sm .ink-seal-text { font-size: 0.85rem; letter-spacing: 0.04em; }

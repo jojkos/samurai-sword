@@ -401,8 +401,14 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
                 : 'Your seat stays at the table; you can rejoin this room with the same name while the duel lasts.'}
             </p>
             <div className="result-actions">
-              <button className="btn btn-danger" onClick={props.onLeave}>Leave</button>
-              <button className="btn" onClick={() => setConfirmLeave(false)}>Stay</button>
+              <button className="ink-seal ink-seal-blood ink-seal-live" onClick={props.onLeave}>
+                <span className="ink-seal-kanji" aria-hidden="true">退</span>
+                <span className="ink-seal-text">Leave</span>
+              </button>
+              <button className="ink-seal ink-seal-ink ink-seal-live" onClick={() => setConfirmLeave(false)}>
+                <span className="ink-seal-kanji" aria-hidden="true">留</span>
+                <span className="ink-seal-text">Stay</span>
+              </button>
             </div>
           </div>
         </div>
@@ -799,7 +805,10 @@ function RoleCeremony(props: { view: PlayerView; onDone: () => void }) {
           </h2>
           <p>{char.text}</p>
         </div>
-        <button className="btn btn-primary">The duel begins</button>
+        <button className="ink-seal ink-seal-vermilion ink-seal-live">
+          <span className="ink-seal-kanji" aria-hidden="true">始</span>
+          <span className="ink-seal-text">The duel begins</span>
+        </button>
       </div>
     </div>
   )
@@ -847,13 +856,15 @@ function InspectOverlay(props: {
           <p>{def.text}</p>
           <div className="inspect-actions">
             {canPlay && (
-              <button className="btn btn-primary" onClick={props.onPlay}>
-                Play
+              <button className="ink-seal ink-seal-vermilion ink-seal-live" onClick={props.onPlay}>
+                <span className="ink-seal-kanji" aria-hidden="true">出</span>
+                <span className="ink-seal-text">Play</span>
               </button>
             )}
             {blockedReason && <span className="inspect-blocked">{blockedReason}</span>}
-            <button className="btn btn-ghost" onClick={props.onClose}>
-              Close
+            <button className="ink-seal ink-seal-ink ink-seal-live" onClick={props.onClose}>
+              <span className="ink-seal-kanji" aria-hidden="true">閉</span>
+              <span className="ink-seal-text">Close</span>
             </button>
           </div>
         </div>
@@ -929,7 +940,10 @@ function SeatInfoModal(props: {
           </div>
         )}
 
-        <button className="btn" onClick={props.onClose}>Close</button>
+        <button className="ink-seal ink-seal-ink ink-seal-live" onClick={props.onClose}>
+          <span className="ink-seal-kanji" aria-hidden="true">閉</span>
+          <span className="ink-seal-text">Close</span>
+        </button>
       </div>
     </div>
   )
@@ -1052,7 +1066,10 @@ function GeishaMenu(props: {
             </div>
           )}
         </div>
-        <button className="btn btn-ghost" onClick={props.onCancel}>Cancel</button>
+        <button className="ink-seal ink-seal-ink ink-seal-live" onClick={props.onCancel}>
+          <span className="ink-seal-kanji" aria-hidden="true">止</span>
+          <span className="ink-seal-text">Cancel</span>
+        </button>
       </div>
     </div>
   )
@@ -1094,8 +1111,12 @@ function PromptModal(props: { view: PlayerView; prompt: Pending; session: Sessio
               </div>
             ))}
           </div>
-          <button className="btn btn-danger" onClick={() => session.sendIntent({ t: 'respondParry', card: null })}>
-            Take {prompt.damage} wound{prompt.damage > 1 ? 's' : ''}
+          <button
+            className="ink-seal ink-seal-blood ink-seal-live"
+            onClick={() => session.sendIntent({ t: 'respondParry', card: null })}
+          >
+            <span className="ink-seal-kanji" aria-hidden="true">受</span>
+            <span className="ink-seal-text">Take {prompt.damage} wound{prompt.damage > 1 ? 's' : ''}</span>
           </button>
         </Modal>
       )
@@ -1121,8 +1142,12 @@ function PromptModal(props: { view: PlayerView; prompt: Pending; session: Sessio
               </div>
             ))}
           </div>
-          <button className="btn btn-danger" onClick={() => session.sendIntent({ t: 'respondForced', card: null })}>
-            Suffer 1 wound
+          <button
+            className="ink-seal ink-seal-blood ink-seal-live"
+            onClick={() => session.sendIntent({ t: 'respondForced', card: null })}
+          >
+            <span className="ink-seal-kanji" aria-hidden="true">受</span>
+            <span className="ink-seal-text">Suffer 1 wound</span>
           </button>
         </Modal>
       )
@@ -1147,8 +1172,12 @@ function PromptModal(props: { view: PlayerView; prompt: Pending; session: Sessio
               </div>
             ))}
           </div>
-          <button className="btn btn-danger" onClick={() => session.sendIntent({ t: 'respondBushido', loseHonor: true })}>
-            {shogun3p ? 'Discard Bushido' : 'Lose 1 Honor'}
+          <button
+            className="ink-seal ink-seal-blood ink-seal-live"
+            onClick={() => session.sendIntent({ t: 'respondBushido', loseHonor: true })}
+          >
+            <span className="ink-seal-kanji" aria-hidden="true">受</span>
+            <span className="ink-seal-text">{shogun3p ? 'Discard Bushido' : 'Lose 1 Honor'}</span>
           </button>
         </Modal>
       )
@@ -1186,11 +1215,12 @@ function DiscardPrompt(props: { view: PlayerView; count: number; session: Sessio
         ))}
       </div>
       <button
-        className="btn btn-primary"
+        className="ink-seal ink-seal-vermilion ink-seal-live"
         disabled={picked.length !== props.count}
         onClick={() => props.session.sendIntent({ t: 'respondDiscard', cards: picked })}
       >
-        Discard {picked.length}/{props.count}
+        <span className="ink-seal-kanji" aria-hidden="true">捨</span>
+        <span className="ink-seal-text">Discard {picked.length}/{props.count}</span>
       </button>
     </Modal>
   )
@@ -1271,8 +1301,8 @@ function InkRule(props: { className: string; delay?: number; strokeWidth?: numbe
  * 3) the way onward — Play again / Leave pressed as vermilion & ink hanko.
  * All motion is transform / opacity / clip-path / SVG-stroke — phone-safe,
  * and every entrance fills `backwards`/`both` so reduced-motion lands on the
- * finished painting instantly. The night duel shows through beneath, so a
- * local #ink-brush filter is mounted here (InkScene isn't on this screen).
+ * finished painting instantly. The #ink-brush filter it uses is mounted once
+ * at the GameScreen root (InkScene isn't on this screen).
  */
 function ResultOverlay(props: { view: PlayerView; session: Session; onLeave: () => void }) {
   const { view, session } = props
@@ -1294,14 +1324,6 @@ function ResultOverlay(props: { view: PlayerView; session: Session; onLeave: () 
   let stroke = 0
   return (
     <div className={`modal-backdrop result-backdrop ${victory ? 'result-victory' : 'result-defeat'}`}>
-      {/* brush-displacement filter, scoped to the finale (night screen has no InkScene) */}
-      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-        <filter id="ink-brush" x="-12%" y="-12%" width="124%" height="124%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="7" result="n" />
-          <feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-      </svg>
-
       <div className="result-stage">
         <div className="result-verdict">
           {/* the rising sun / cold moon blooming behind the verdict */}
