@@ -679,12 +679,35 @@ body {
 }
 
 .seat-turn {
+  transform: translate(-50%, -50%) scale(1.05);
   box-shadow:
     0 0 0 3px rgba(243, 220, 138, 0.8),
     0 0 30px rgba(243, 193, 75, 0.45),
     inset 0 0 0 1px rgba(201, 155, 46, 0.4),
     var(--shadow-contact), var(--shadow-soft);
   animation: turn-glow 1.8s ease-in-out infinite;
+}
+/* floating marker so the active player is unmistakable at a glance */
+.seat-turn::before {
+  content: '出番';
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-kanji);
+  font-size: 0.8rem;
+  color: var(--gold-bright);
+  background: rgba(12, 7, 4, 0.78);
+  border: 1px solid rgba(243, 220, 138, 0.5);
+  border-radius: 12px;
+  padding: 1px 10px;
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(243, 193, 75, 0.6);
+  animation: marker-bob 1.6s ease-in-out infinite;
+  z-index: 7;
+}
+@keyframes marker-bob {
+  50% { transform: translateX(-50%) translateY(-4px); }
 }
 @keyframes turn-glow {
   50% { box-shadow: 0 0 0 3px rgba(243, 220, 138, 0.5), 0 0 44px rgba(243, 193, 75, 0.6), inset 0 0 0 1px rgba(201, 155, 46, 0.4), var(--shadow-contact), var(--shadow-soft); }
@@ -1226,6 +1249,7 @@ body {
 
 /* flies from the actor's seat (per-instance CSS vars) to table center,
    holds ~1.3s so everyone reads it, then fades — strictly one at a time */
+.showcase-anchor { position: absolute; inset: 0; pointer-events: none; }
 .showcase {
   position: absolute;
   left: 50%;
@@ -1238,28 +1262,19 @@ body {
   pointer-events: none;
   transform: translate(-50%, -50%);
   animation: showcase-fly 1.9s var(--ease-out) forwards;
+  will-change: transform, opacity;
 }
+/* transform-only flight (no layout work): starts offset by --dx/--dy (the
+   actor's seat, measured in px), lands at table center */
 @keyframes showcase-fly {
   0% {
-    left: var(--from-left, 50%);
-    top: var(--from-top, 20%);
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.45) rotate(-7deg);
+    transform: translate(-50%, -50%) translate(var(--dx, 0px), var(--dy, -120px)) scale(0.45) rotate(-7deg);
   }
-  13% {
-    left: 50%;
-    top: 44%;
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1) rotate(1.2deg);
-  }
+  13% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(1.2deg); }
   18% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
   88% { opacity: 1; }
-  100% {
-    left: 50%;
-    top: 44%;
-    opacity: 0;
-    transform: translate(-50%, -54%) scale(0.9);
-  }
+  100% { opacity: 0; transform: translate(-50%, -54%) scale(0.9); }
 }
 .showcase-cardwrap {
   filter: drop-shadow(0 20px 26px rgba(0, 0, 0, 0.55));
@@ -1390,6 +1405,13 @@ body {
   opacity: 0.7;
 }
 .ceremony-goal { margin: 0.3rem 0 0; font-size: 1.05rem; line-height: 1.55; opacity: 0.92; }
+.ceremony-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  font-style: italic;
+  opacity: 0.75;
+}
 .ceremony-char {
   margin-top: 0.9rem;
   border-top: 1px solid rgba(242, 232, 207, 0.25);
@@ -1527,8 +1549,14 @@ body {
   flex-direction: column;
   align-items: center;
   overflow-y: auto;
+  scrollbar-gutter: stable; /* a scrollbar appearing must not shift content */
   text-align: center;
   animation: unfurl 400ms var(--ease-overshoot);
+}
+/* inside scrollable modals a full hover-lift grows the scroll area and makes
+   the scrollbar flicker — keep the lift subtle here */
+.modal .card-clickable:hover {
+  transform: translateY(-4px) scale(1.02);
 }
 @keyframes unfurl {
   0% { clip-path: inset(0 0 88% 0); transform: translateY(-10px); }
@@ -1707,6 +1735,22 @@ body {
   background:
     linear-gradient(115deg, rgba(243, 220, 138, 0.25), transparent 55%),
     rgba(255, 255, 255, 0.32);
+  position: relative;
+  overflow: hidden;
+}
+/* a slow shine sweep crowns the winning team */
+.result-team-winner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 32%, rgba(243, 220, 138, 0.4) 47%, transparent 62%);
+  transform: translateX(-100%);
+  animation: shine-sweep 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes shine-sweep {
+  0% { transform: translateX(-100%); }
+  55%, 100% { transform: translateX(100%); }
 }
 .result-team h3 { margin: 0 0 0.4em; font-size: 1rem; letter-spacing: 0.04em; }
 .result-team h3 em { color: var(--crimson); font-size: 0.85em; }
@@ -1816,6 +1860,13 @@ body {
   .showcase-ribbon { font-size: 0.85rem; }
   .ceremony-kanji { font-size: 3.6rem; }
   .seat-role-badge { font-size: 0.52rem; line-height: 1.8; }
+
+  /* perf: phones struggle with per-element blur and displacement filters */
+  .log-entries, .modal-backdrop, .inspect-backdrop, .ceremony,
+  .pile-count, .role-badge, .log-toggle, .sound-toggle, .waiting-banner,
+  .showcase-ribbon { backdrop-filter: none; }
+  .card-frame, .card-seal, .card-back-mon { filter: none; }
+  .ember:nth-child(n + 7) { display: none; }
 }
 
 /* touch devices: hover doesn't exist — kill sticky lift states and the hover-inspect */

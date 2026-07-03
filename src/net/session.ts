@@ -350,11 +350,20 @@ export class HostSession implements Session {
 const guestKey = (code: string) => `samurai-sword-guest-${code.toUpperCase()}`
 const GUEST_ROOM_KEY = 'samurai-sword-guest-room'
 
+/** a remembered room older than this is stale — do not drag players back in */
+const GUEST_ROOM_TTL = 6 * 60 * 60 * 1000
+
 /** The room this tab is (or was) sitting in — lets a reload rejoin automatically. */
 export function loadGuestRoom(): { code: string; name: string } | null {
   try {
     const raw = ss()?.getItem(GUEST_ROOM_KEY)
-    return raw ? (JSON.parse(raw) as { code: string; name: string }) : null
+    if (!raw) return null
+    const room = JSON.parse(raw) as { code: string; name: string; savedAt?: number }
+    if (room.savedAt && Date.now() - room.savedAt > GUEST_ROOM_TTL) {
+      clearGuestRoom()
+      return null
+    }
+    return room
   } catch {
     return null
   }
@@ -384,7 +393,7 @@ export class GuestSession implements Session {
     const saved = ss()?.getItem(guestKey(this.code))
     this.token = saved ?? newToken()
     ss()?.setItem(guestKey(this.code), this.token)
-    ss()?.setItem(GUEST_ROOM_KEY, JSON.stringify({ code: this.code, name }))
+    ss()?.setItem(GUEST_ROOM_KEY, JSON.stringify({ code: this.code, name, savedAt: Date.now() }))
 
     this.peer = new Peer()
     this.peer.on('open', () => this.connect())

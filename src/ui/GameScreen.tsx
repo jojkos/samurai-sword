@@ -580,31 +580,47 @@ function PlayShowcase(props: { view: PlayerView; positions: { left: number; top:
     if (fresh.length) setQueue((q) => [...q, ...fresh].slice(-4))
   }, [view.log, view.players])
   const current = queue[0]
+  const anchorRef = useRef<HTMLDivElement>(null)
+  // px offset from table center to the actor's seat — lets the flight animate
+  // transform only (compositor-friendly; animating left/top caused jank)
+  const [delta, setDelta] = useState<{ key: number; dx: number; dy: number } | null>(null)
   useEffect(() => {
     if (!current) return
     const t = setTimeout(() => setQueue((q) => q.slice(1)), 1900)
+    const table = anchorRef.current?.parentElement
+    const pos = props.positions[current.ev.actorSeat]
+    if (table && pos) {
+      setDelta({
+        key: current.key,
+        dx: ((pos.left - 50) / 100) * table.clientWidth,
+        dy: ((pos.top - 44) / 100) * table.clientHeight,
+      })
+    } else {
+      setDelta({ key: current.key, dx: 0, dy: -120 })
+    }
     return () => clearTimeout(t)
-  }, [current])
-  if (!current) return null
-  const pos = props.positions[current.ev.actorSeat]
-  const actor = view.players[current.ev.actorSeat]
+  }, [current, props.positions])
+  const actor = current ? view.players[current.ev.actorSeat] : null
   return (
-    <div
-      key={current.key}
-      className={`showcase ${current.ev.isAttack ? 'showcase-attack' : ''}`}
-      style={{
-        ['--from-left' as string]: `${pos.left}%`,
-        ['--from-top' as string]: `${pos.top}%`,
-      }}
-      aria-hidden="true"
-    >
-      <div className="showcase-ribbon">
-        <strong>{actor.name}</strong>
-        {current.ev.isAttack ? ' attacks!' : ' plays'}
-      </div>
-      <div className="showcase-cardwrap">
-        <CardFace card={{ id: -current.key, kind: current.ev.kind }} />
-      </div>
+    <div className="showcase-anchor" ref={anchorRef} aria-hidden="true">
+      {current && actor && delta?.key === current.key && (
+        <div
+          key={current.key}
+          className={`showcase ${current.ev.isAttack ? 'showcase-attack' : ''}`}
+          style={{
+            ['--dx' as string]: `${delta.dx}px`,
+            ['--dy' as string]: `${delta.dy}px`,
+          }}
+        >
+          <div className="showcase-ribbon">
+            <strong>{actor.name}</strong>
+            {current.ev.isAttack ? ' attacks!' : ' plays'}
+          </div>
+          <div className="showcase-cardwrap">
+            <CardFace card={{ id: -current.key, kind: current.ev.kind }} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -616,10 +632,7 @@ function RoleCeremony(props: { view: PlayerView; onDone: () => void }) {
   const me = view.players[view.seat]
   const char = CHARACTERS[me.character]
   const { onDone } = props
-  useEffect(() => {
-    const t = setTimeout(onDone, 7000)
-    return () => clearTimeout(t)
-  }, [onDone])
+  // stays open until the player closes it — reading your role is not on a timer
   return (
     <div className={`ceremony ceremony-${role.team}`} onClick={onDone}>
       <div className="ceremony-inner">
@@ -627,6 +640,12 @@ function RoleCeremony(props: { view: PlayerView; onDone: () => void }) {
         <h1>{role.name}</h1>
         <div className="ceremony-team">team · {TEAM_LABEL[role.team]}</div>
         <p className="ceremony-goal">{ROLE_GOAL[view.you.role]}</p>
+        {view.playerCount === 3 && (
+          <p className="ceremony-note">
+            3-player duel: with one public Shogun and two Ninja there is nothing to hide — all
+            roles are shown openly. Roles are secret from 4 players up.
+          </p>
+        )}
         <div className="ceremony-char">
           <h2>
             <span className="char-kanji">{CHARACTER_KANJI[me.character]}</span> {char.name}

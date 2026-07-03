@@ -71,7 +71,11 @@ export function App() {
     }
     const room = loadGuestRoom()
     const invited = new URLSearchParams(location.search).get('join')?.toUpperCase()
-    // a fresh invite link to a DIFFERENT room wins over the remembered one
+    // a fresh invite link to a DIFFERENT room wins — forget the remembered one
+    if (room && invited && invited !== room.code) {
+      clearGuestRoom()
+      return
+    }
     if (room?.name && (!invited || invited === room.code)) {
       setDead(null)
       const session = new GuestSession(room.code, room.name, events())
