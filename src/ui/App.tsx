@@ -11,6 +11,7 @@ import {
 } from '../net/session'
 import type { LobbyPlayer } from '../net/protocol'
 import { GameScreen } from './GameScreen'
+import { InkScene } from './InkScene'
 import { sound } from './sound'
 
 type Screen =
@@ -53,7 +54,7 @@ export function App() {
   useEffect(() => {
     const unlock = () => sound.unlock()
     const click = (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest?.('.btn')) sound.uiClick()
+      if ((e.target as HTMLElement).closest?.('.btn, .ink-seal, .ink-resume')) sound.uiClick()
     }
     window.addEventListener('pointerdown', unlock, { once: true })
     window.addEventListener('click', click)
@@ -181,8 +182,10 @@ export function App() {
   const session = sessionRef.current
 
   return (
-    <div className="app">
-      <SceneBackdrop />
+    // home lives inside a daylight ink painting; every other screen keeps the night scene
+    <div className={screen.s === 'home' ? 'app app-ink' : 'app'}>
+      <SharedFilterDefs />
+      {screen.s === 'home' ? <InkScene /> : <SceneBackdrop />}
       <button
         className={`sound-toggle ${soundOn ? '' : 'sound-toggle-muted'}`}
         onClick={() => {
@@ -208,75 +211,124 @@ export function App() {
       )}
 
       {screen.s === 'home' && (
-        <div className="home">
-          <h1 className="home-title">
-            <span className="home-kanji">侍</span>
-            <span className="home-name">Samurai Sword</span>
-            <span className="home-subtitle">刀 · The Way of Honor</span>
-          </h1>
-          <p className="home-sub">A card game of hidden roles and stolen honor — 3 to 7 warriors, online.</p>
-          <div className="home-panel">
-            <div className="home-field">
-              <label className="home-label" htmlFor="warrior-name">Your name, warrior</label>
-              <input
-                id="warrior-name"
-                ref={nameInputRef}
-                className={`input ${fieldError?.field === 'name' ? 'input-invalid' : ''}`}
-                placeholder="e.g. Musashi"
-                maxLength={16}
-                value={name}
-                aria-invalid={fieldError?.field === 'name' || undefined}
-                onChange={(e) => {
-                  setName(e.target.value)
-                  if (fieldError?.field === 'name') setFieldError(null)
-                }}
-                onKeyDown={(e) =>
-                  e.key === 'Enter' && (joinCode.trim().length === 4 ? joinRoom() : createRoom())
-                }
+        <div className="ink-home">
+          <header className="ink-crest">
+            {/* ensō — a single brush ring drawing itself around the crest kanji */}
+            <div className="ink-enso" aria-hidden="true">
+              <svg viewBox="0 0 200 200">
+                <path
+                  className="ink-enso-stroke" pathLength="1"
+                  d="M112 21 C64 14 24 52 22 99 C20 149 61 184 106 181 C152 178 181 141 178 97 C176 63 155 38 126 27"
+                  fill="none" stroke="#26211a" strokeWidth="8" strokeLinecap="round"
+                />
+              </svg>
+              <span className="ink-crest-kanji">侍</span>
+            </div>
+            <h1 className="ink-title">Samurai Sword</h1>
+            {/* the sword slash — one vermilion stroke cut beneath the name */}
+            <svg className="ink-slash" viewBox="0 0 420 36" preserveAspectRatio="none" aria-hidden="true">
+              <path
+                className="ink-slash-stroke" pathLength="1"
+                d="M6 24 Q120 10 250 17 Q340 21 414 12"
+                fill="none" stroke="#c3282f" strokeWidth="9" strokeLinecap="round"
               />
+              <path
+                className="ink-slash-stroke ink-slash-echo" pathLength="1"
+                d="M14 30 Q150 20 292 24 Q360 25 410 20"
+                fill="none" stroke="#c3282f" strokeWidth="3" strokeLinecap="round"
+              />
+            </svg>
+            <p className="ink-subtitle">刀 · The Way of Honor</p>
+            <p className="ink-tagline">Hidden roles. Stolen honor. 3–7 warriors, online.</p>
+          </header>
+
+          <div className="ink-form">
+            {/* the name is written straight onto the paper, over a brushed rule */}
+            <div className="ink-field">
+              <label className="ink-label" htmlFor="warrior-name">Your name, warrior</label>
+              <div className={`ink-writing ${fieldError?.field === 'name' ? 'ink-writing-invalid' : ''}`}>
+                <input
+                  id="warrior-name"
+                  ref={nameInputRef}
+                  className="ink-input"
+                  placeholder="e.g. Musashi"
+                  maxLength={16}
+                  value={name}
+                  aria-invalid={fieldError?.field === 'name' || undefined}
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    if (fieldError?.field === 'name') setFieldError(null)
+                  }}
+                  onKeyDown={(e) =>
+                    e.key === 'Enter' && (joinCode.trim().length === 4 ? joinRoom() : createRoom())
+                  }
+                />
+                <svg className="ink-underline" viewBox="0 0 300 12" preserveAspectRatio="none" aria-hidden="true">
+                  <path pathLength="1" d="M4 8 Q80 3 152 7 Q226 10 296 5" fill="none" strokeWidth="3" strokeLinecap="round" />
+                </svg>
+              </div>
               {fieldError?.field === 'name' && (
-                <span className="home-field-error" role="alert">{fieldError.msg}</span>
+                <span className="ink-error" role="alert">{fieldError.msg}</span>
               )}
             </div>
-            <div className="home-columns">
-              <div className="home-column">
-                <span className="home-label">Gather your clan</span>
-                <button className="btn btn-primary" onClick={createRoom}>Create a room</button>
+
+            <div className="ink-actions">
+              <div className="ink-action">
+                <span className="ink-label ink-label-center">Gather your clan</span>
+                {/* hanko seal — pressed into the paper */}
+                <button className="ink-seal ink-seal-vermilion" onClick={createRoom}>
+                  <span className="ink-seal-kanji" aria-hidden="true">結</span>
+                  <span className="ink-seal-text">Create a room</span>
+                </button>
               </div>
-              <div className="home-divider"><span>or</span></div>
-              <div className="home-column">
-                <span className="home-label">Answer the call</span>
-                <div className="home-join">
-                  <input
-                    ref={codeInputRef}
-                    className={`input input-code ${fieldError?.field === 'code' ? 'input-invalid' : ''}`}
-                    placeholder="CODE"
-                    maxLength={4}
-                    value={joinCode}
-                    aria-invalid={fieldError?.field === 'code' || undefined}
-                    onChange={(e) => {
-                      setJoinCode(e.target.value.toUpperCase())
-                      if (fieldError?.field === 'code') setFieldError(null)
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && joinRoom()}
-                  />
-                  <button className="btn" onClick={joinRoom}>Join</button>
+              <div className="ink-or" aria-hidden="true"><span>or</span></div>
+              <div className="ink-action">
+                <span className="ink-label ink-label-center">Answer the call</span>
+                <div className="ink-join">
+                  {/* the room code sits inside a painted cartouche */}
+                  <div className={`ink-cartouche ${fieldError?.field === 'code' ? 'ink-cartouche-invalid' : ''}`}>
+                    <svg className="ink-cartouche-frame" viewBox="0 0 120 58" preserveAspectRatio="none" aria-hidden="true">
+                      <rect className="ink-cartouche-stroke" pathLength="1" x="3" y="3" width="114" height="52" rx="6" fill="none" strokeWidth="3" />
+                    </svg>
+                    <input
+                      ref={codeInputRef}
+                      className="ink-code"
+                      placeholder="CODE"
+                      maxLength={4}
+                      value={joinCode}
+                      aria-invalid={fieldError?.field === 'code' || undefined}
+                      onChange={(e) => {
+                        setJoinCode(e.target.value.toUpperCase())
+                        if (fieldError?.field === 'code') setFieldError(null)
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && joinRoom()}
+                    />
+                  </div>
+                  <button className="ink-seal ink-seal-ink" onClick={joinRoom}>
+                    <span className="ink-seal-kanji" aria-hidden="true">参</span>
+                    <span className="ink-seal-text">Join</span>
+                  </button>
                 </div>
                 {fieldError?.field === 'code' && (
-                  <span className="home-field-error" role="alert">{fieldError.msg}</span>
+                  <span className="ink-error" role="alert">{fieldError.msg}</span>
                 )}
               </div>
             </div>
+
             {hostSave && (
-              <button className="btn btn-ghost home-resume" onClick={resumeRoom}>
-                ⟲ Resume hosting room {hostSave.code}
+              <button className="ink-resume" onClick={resumeRoom}>
+                <span className="ink-resume-seal" aria-hidden="true">再</span>
+                Resume hosting room {hostSave.code}
                 {hostSave.state ? ' (game in progress)' : ''}
               </button>
             )}
           </div>
-          <p className="home-note">
+
+          {/* the colophon — how it works, signed with the painter's seal */}
+          <p className="ink-note">
             One player creates a room and shares its code. Everyone connects directly to the
             host&apos;s browser — no accounts, nothing to install. Keep the host tab open.
+            <span className="ink-note-seal" aria-hidden="true">侍</span>
           </p>
         </div>
       )}
@@ -402,16 +454,22 @@ function JoinQr(props: { code: string }) {
   )
 }
 
-/** Night scene behind everything + shared SVG filter defs. All code-generated. */
+/** Shared SVG filter defs (card frames etc. reference #rough-ink on every screen). */
+function SharedFilterDefs() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+      <filter id="rough-ink" x="-8%" y="-8%" width="116%" height="116%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="3" seed="2" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
+  )
+}
+
+/** Night scene behind the lobby/connecting/game screens. All code-generated. */
 function SceneBackdrop() {
   return (
     <>
-      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
-        <filter id="rough-ink" x="-8%" y="-8%" width="116%" height="116%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="3" seed="2" result="n" />
-          <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-      </svg>
       <div className="scene" aria-hidden="true">
         <div className="scene-sky" />
         <div className="scene-moon" />

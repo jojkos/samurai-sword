@@ -108,8 +108,9 @@ body {
    direct child of .app styled with a lone class. Every fixed-position direct
    child MUST be excluded here AND re-fixed via an `.app > .x` rule. Prefer
    mounting floating UI inside .game/.home instead of as an .app child. */
-.app > *:not(.scene):not(.sound-toggle) { position: relative; z-index: 1; }
+.app > *:not(.scene):not(.ink-scene):not(.sound-toggle) { position: relative; z-index: 1; }
 .app > .sound-toggle { position: fixed; }
+.app > .ink-scene { position: fixed; }
 
 /* ================= embers ================= */
 
@@ -2318,4 +2319,566 @@ body {
     box-shadow: inset 0 0 0 1px rgba(60, 40, 15, 0.35), var(--shadow-contact), var(--shadow-soft);
   }
   .seat-targetable:hover { transform: translate(-50%, -50%); }
+}
+
+/* ================================================================
+   LIVING INK PAINTING — the home screen as a sumi-e that paints
+   itself. Scoped: every rule targets .ink-* / .app-ink, so the
+   night scene on lobby/connecting/game screens is untouched.
+
+   Choreography (all fills `backwards`: the natural CSS state is the
+   finished painting, so prefers-reduced-motion lands there instantly):
+     0.0s  paper           1.0s  crest kanji blooms
+     0.3s  ensō draws      1.2s  title rises, slash cuts
+     0.3s  ridges draw     1.9s  name rule writes itself
+     0.5s  sun blooms      2.2s  hanko seals stamp down
+     0.7s  bamboo grows    2.6s  colophon settles
+   ================================================================ */
+
+@keyframes ink-draw { from { stroke-dashoffset: 1; } }
+@keyframes ink-fade { from { opacity: 0; } }
+@keyframes ink-rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes ink-bloom { from { opacity: 0; transform: scale(1.3); } }
+
+.app-ink { background: var(--washi); }
+
+/* ---------- the painting (fixed backdrop; see .app > * trap note) ---------- */
+
+.ink-scene { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+
+.ink-paper {
+  position: absolute; inset: 0;
+  background:
+    var(--washi-grain),
+    var(--washi-fiber),
+    radial-gradient(ellipse 120% 90% at 50% 0%, #f7efd9 0%, #f2e8cf 55%, #e7d8b2 100%);
+  background-blend-mode: multiply, multiply, normal;
+}
+
+/* vermilion sun — soft-bled disc that blooms in, then breathes */
+.ink-sun {
+  position: absolute; top: 6%; right: 7%;
+  width: 215px; height: 215px;
+  background: radial-gradient(circle, #c3282f 0%, #bf262e 50%, rgba(195, 40, 47, 0.5) 61%, rgba(195, 40, 47, 0) 70%);
+  opacity: 0.9;
+  animation: ink-sun-bloom 1.4s var(--ease-out) 0.5s backwards, ink-sun-breathe 9s ease-in-out 4s infinite;
+}
+@keyframes ink-sun-bloom { from { opacity: 0; transform: scale(0.55); } }
+@keyframes ink-sun-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+
+/* crane gliding across the sun's edge */
+.ink-crane {
+  position: absolute; top: 12%; right: 14%;
+  width: 128px; height: auto;
+  animation: ink-fade 1.2s ease 1.9s backwards;
+}
+.ink-crane-body { animation: ink-crane-glide 7s ease-in-out 3.2s infinite; }
+@keyframes ink-crane-glide { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-16px, 9px); } }
+
+/* bamboo along the left edge — stalks draw bottom-to-top, leaves flick out */
+.ink-bamboo {
+  position: absolute; left: -34px; bottom: 0;
+  height: min(76vh, 700px); width: auto;
+  opacity: 0.8;
+}
+.ink-stalk {
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  animation: ink-draw 1.3s var(--ease-out) 0.7s backwards;
+}
+.ink-stalk-2 { animation-delay: 0.95s; opacity: 0.75; }
+.ink-nodes path { animation: ink-fade 0.5s ease backwards; }
+.ink-nodes path:nth-child(odd) { animation-delay: 1.75s; }
+.ink-nodes path:nth-child(even) { animation-delay: 1.9s; }
+.ink-leaf {
+  transform-box: fill-box; transform-origin: 0% 50%;
+  animation: ink-leaf-flick 0.7s var(--ease-out) backwards;
+}
+@keyframes ink-leaf-flick { from { opacity: 0; transform: scale(0.2) rotate(-9deg); } }
+.ink-leaf:nth-child(1) { animation-delay: 1.6s; }
+.ink-leaf:nth-child(2) { animation-delay: 1.75s; }
+.ink-leaf:nth-child(3) { animation-delay: 1.9s; }
+.ink-leaf:nth-child(4) { animation-delay: 2.05s; }
+.ink-leaf:nth-child(5) { animation-delay: 2.2s; }
+.ink-leaf:nth-child(6) { animation-delay: 2.3s; }
+
+/* mountain ridges — the big strokes; washes bleed in behind them */
+.ink-mountains {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  width: 100%; height: 30vh; min-height: 170px;
+}
+.ink-ridge {
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  animation: ink-draw 1.5s cubic-bezier(0.45, 0, 0.4, 1) 0.3s backwards;
+  opacity: 0.8;
+}
+.ink-ridge-2 { animation-delay: 0.65s; opacity: 0.6; }
+.ink-wash { animation: ink-fade 1.6s ease backwards; }
+.ink-wash-1 { opacity: 0.13; animation-delay: 1.3s; }
+.ink-wash-2 { opacity: 0.18; animation-delay: 1.6s; }
+
+/* mist lying between the ridges — drifts slowly forever */
+.ink-mist {
+  position: absolute; left: 0; right: 0; bottom: 13vh;
+  height: 11vh;
+  background: radial-gradient(ellipse 65% 100% at 42% 50%, rgba(242, 232, 207, 0.9), transparent 72%);
+  opacity: 0.9;
+  animation: ink-fade 1.8s ease 1.5s backwards, ink-mist-drift 16s ease-in-out 3s infinite;
+}
+@keyframes ink-mist-drift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-3%); } }
+
+/* petals — idle life drifting down the whole painting */
+.ink-petals { position: absolute; inset: 0; overflow: hidden; }
+.ink-petals span {
+  position: absolute; top: -24px;
+  width: 12px; height: 8px;
+  border-radius: 62% 38% 55% 45%;
+  background: rgba(195, 40, 47, 0.32);
+  opacity: 0;
+  animation: ink-petal-fall linear infinite;
+}
+@keyframes ink-petal-fall {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(var(--petal-scale, 1)); opacity: 0; }
+  8% { opacity: 0.85; }
+  55% { transform: translate3d(var(--petal-drift, 40px), 55vh, 0) rotate(200deg) scale(var(--petal-scale, 1)); opacity: 0.6; }
+  100% { transform: translate3d(calc(var(--petal-drift, 40px) * -0.6), 108vh, 0) rotate(420deg) scale(var(--petal-scale, 1)); opacity: 0; }
+}
+
+/* deckled paper edges */
+.ink-vignette {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 58%, rgba(74, 56, 30, 0.15) 100%),
+    linear-gradient(180deg, rgba(74, 56, 30, 0.06), transparent 10% 88%, rgba(74, 56, 30, 0.1));
+}
+
+/* ---------- the writing on the paper (home content) ---------- */
+
+.ink-home {
+  margin: auto;
+  width: 100%;
+  max-width: 560px;
+  padding: 2.2rem 1.4rem 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  color: var(--ink);
+  text-align: center;
+}
+
+.ink-crest { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; }
+
+/* ensō — one brush ring, deliberately open, drawing itself around the crest */
+.ink-enso { position: relative; width: 132px; height: 132px; display: grid; place-items: center; }
+.ink-enso svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ink-enso-stroke {
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  opacity: 0.9;
+  animation: ink-draw 1s cubic-bezier(0.5, 0, 0.4, 1) 0.3s backwards;
+}
+.ink-crest-kanji {
+  font-family: var(--font-kanji);
+  font-weight: 700;
+  font-size: 4.1rem;
+  line-height: 1;
+  color: var(--ink);
+  animation: ink-bloom 0.8s var(--ease-out) 1s backwards;
+}
+
+.ink-title {
+  margin: 0.5rem 0 0;
+  font-size: clamp(2.3rem, 7vw, 3.2rem);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  line-height: 1.05;
+  animation: ink-rise 0.9s var(--ease-out) 1.2s backwards;
+}
+
+/* the sword slash beneath the name — shimmers quietly once drawn */
+.ink-slash { width: min(400px, 84vw); height: 24px; margin-top: 0.35rem; overflow: visible; }
+.ink-slash-stroke {
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  opacity: 0.9;
+  animation: ink-draw 0.55s var(--ease-strike) 1.5s backwards, ink-slash-breathe 7s ease-in-out 5s infinite;
+}
+@keyframes ink-slash-breathe { 0%, 100% { opacity: 0.9; } 50% { opacity: 0.68; } }
+/* the echo stroke draws a beat later and breathes fainter */
+.ink-slash-echo {
+  opacity: 0.42;
+  animation-name: ink-draw, ink-slash-echo-breathe;
+  animation-delay: 1.66s, 5.5s;
+}
+@keyframes ink-slash-echo-breathe { 0%, 100% { opacity: 0.42; } 50% { opacity: 0.26; } }
+
+.ink-subtitle {
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.5em;
+  margin-left: 0.5em; /* optically recenter tracked text */
+  text-transform: uppercase;
+  color: #8a6a15;
+  animation: ink-rise 0.8s var(--ease-out) 1.7s backwards;
+}
+.ink-tagline {
+  margin: 0.55rem 0 0;
+  font-style: italic;
+  font-size: 1.02rem;
+  color: rgba(74, 66, 56, 0.85);
+  animation: ink-rise 0.8s var(--ease-out) 1.85s backwards;
+}
+
+.ink-form {
+  width: 100%;
+  max-width: 430px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  margin-top: 0.3rem;
+}
+
+.ink-label {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(74, 66, 56, 0.8);
+  text-align: left;
+}
+.ink-label-center { text-align: center; }
+
+/* name written straight onto the paper, over a brushed rule */
+.ink-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: ink-rise 0.8s var(--ease-out) 1.9s backwards;
+}
+.ink-writing { position: relative; }
+.ink-input {
+  width: 100%;
+  font-family: var(--font-latin);
+  font-style: italic;
+  font-size: 1.45rem;
+  padding: 0.22em 0.15em 0.28em;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  caret-color: var(--vermilion);
+  text-align: center;
+}
+.ink-input::placeholder { color: rgba(74, 66, 56, 0.4); }
+.ink-input:focus { outline: none; }
+.ink-underline {
+  position: absolute; left: 0; bottom: -3px;
+  width: 100%; height: 12px;
+  pointer-events: none;
+  overflow: visible;
+}
+.ink-underline path {
+  stroke: #26211a;
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  opacity: 0.8;
+  transition: stroke 0.25s, opacity 0.25s;
+  animation: ink-draw 0.7s var(--ease-out) 2.1s backwards;
+}
+.ink-writing:focus-within .ink-underline path { stroke: var(--crimson); opacity: 1; }
+.ink-writing-invalid .ink-underline path { stroke: var(--vermilion); opacity: 1; }
+.ink-writing-invalid { animation: field-shake 0.4s var(--ease-out); }
+
+.ink-error {
+  font-size: 0.85rem;
+  font-style: italic;
+  text-align: left;
+  color: var(--crimson);
+  border-left: 2px solid rgba(195, 40, 47, 0.6);
+  padding-left: 8px;
+  margin-top: 4px;
+}
+
+/* ---------- actions: hanko seal stamps ---------- */
+
+.ink-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 1.1rem;
+}
+.ink-action { flex: 1; display: flex; flex-direction: column; gap: 0.6rem; }
+.ink-or {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: rgba(74, 66, 56, 0.55);
+  font-style: italic;
+  font-size: 0.78rem;
+  animation: ink-fade 0.8s ease 2.3s backwards;
+}
+.ink-or::before, .ink-or::after {
+  content: '';
+  width: 1px;
+  flex: 1;
+  background: linear-gradient(180deg, transparent, rgba(74, 66, 56, 0.4), transparent);
+}
+
+.ink-seal {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 58px;
+  padding: 0.5em 1.1em;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-latin);
+  color: var(--washi);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.09s var(--ease-out);
+  animation: ink-stamp 0.5s var(--ease-out) 2.2s backwards;
+}
+.ink-seal-ink { animation-delay: 2.38s; }
+@keyframes ink-stamp {
+  0% { opacity: 0; transform: scale(1.7) rotate(-5deg); }
+  55% { opacity: 1; transform: scale(0.94) rotate(0.6deg); }
+  78% { transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+/* the stamp body — rough-edged & textured; on a pseudo so the
+   displacement filter never wobbles the label text */
+.ink-seal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px 6px 12px 7px / 7px 12px 6px 14px;
+  background:
+    var(--washi-grain),
+    radial-gradient(ellipse at 32% 28%, rgba(255, 255, 255, 0.16), transparent 60%),
+    linear-gradient(160deg, #c93a38 0%, #a31f28 100%);
+  background-blend-mode: multiply, normal, normal;
+  filter: url(#ink-brush);
+  /* first ring matches the body → reads as a carved hairline inset 3px */
+  box-shadow:
+    inset 0 0 0 3px #b02830,
+    inset 0 0 0 4.5px rgba(242, 232, 207, 0.55),
+    0 2px 10px rgba(74, 40, 20, 0.35);
+}
+.ink-seal-ink::before {
+  background:
+    var(--washi-grain),
+    radial-gradient(ellipse at 32% 28%, rgba(255, 255, 255, 0.1), transparent 60%),
+    linear-gradient(160deg, #3a332a 0%, #211c16 100%);
+  background-blend-mode: multiply, normal, normal;
+  box-shadow:
+    inset 0 0 0 3px #2c261f,
+    inset 0 0 0 4.5px rgba(201, 155, 46, 0.55),
+    0 2px 10px rgba(74, 40, 20, 0.35);
+}
+/* ink bloom rippling out from the press point */
+.ink-seal::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 30px; height: 30px;
+  margin: -15px 0 0 -15px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(143, 29, 44, 0.55), rgba(143, 29, 44, 0) 65%);
+  opacity: 0;
+  transform: scale(0);
+}
+.ink-seal:active::after { animation: ink-bloom-press 0.5s var(--ease-out); }
+@keyframes ink-bloom-press {
+  0% { opacity: 0.8; transform: scale(0.4); }
+  100% { opacity: 0; transform: scale(5); }
+}
+.ink-seal:active { transform: scale(0.94) rotate(-0.5deg); }
+.ink-seal-kanji {
+  position: relative;
+  font-family: var(--font-kanji);
+  font-size: 1.5rem;
+  line-height: 1;
+  opacity: 0.95;
+}
+.ink-seal-text { position: relative; font-size: 1.08rem; letter-spacing: 0.06em; white-space: nowrap; }
+@media (hover: hover) {
+  .ink-seal:hover { transform: translateY(-2px); }
+  .ink-seal:hover::before {
+    box-shadow:
+      inset 0 0 0 3px #b02830,
+      inset 0 0 0 4.5px rgba(242, 232, 207, 0.7),
+      0 5px 16px rgba(74, 40, 20, 0.4);
+  }
+  .ink-seal-ink:hover::before {
+    box-shadow:
+      inset 0 0 0 3px #2c261f,
+      inset 0 0 0 4.5px rgba(201, 155, 46, 0.75),
+      0 5px 16px rgba(74, 40, 20, 0.4);
+  }
+  .ink-seal:active:hover { transform: scale(0.94) rotate(-0.5deg); }
+}
+.ink-seal:focus-visible, .ink-resume:focus-visible {
+  outline: 2px solid rgba(143, 29, 44, 0.8);
+  outline-offset: 3px;
+}
+
+/* join code in a painted cartouche + its seal */
+.ink-join { display: flex; align-items: stretch; gap: 0.7rem; animation: ink-rise 0.7s var(--ease-out) 2.3s backwards; }
+.ink-cartouche { position: relative; flex: 1; min-height: 58px; display: flex; }
+.ink-cartouche-frame {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.ink-cartouche-stroke {
+  stroke: #26211a;
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  opacity: 0.85;
+  transition: stroke 0.25s, opacity 0.25s;
+  animation: ink-draw 0.8s var(--ease-out) 2.45s backwards;
+}
+.ink-cartouche:focus-within .ink-cartouche-stroke { stroke: var(--crimson); opacity: 1; }
+.ink-cartouche-invalid .ink-cartouche-stroke { stroke: var(--vermilion); opacity: 1; }
+.ink-cartouche-invalid { animation: field-shake 0.4s var(--ease-out); }
+.ink-code {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: var(--font-latin);
+  font-size: 1.5rem;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--ink);
+  caret-color: var(--vermilion);
+  padding: 0.2em 0.1em 0.2em 0.4em;
+}
+.ink-code::placeholder { color: rgba(74, 66, 56, 0.35); letter-spacing: 0.24em; }
+.ink-code:focus { outline: none; }
+.ink-join .ink-seal { width: auto; flex: 0 0 auto; min-width: 106px; }
+
+/* resume — a bookmark slip with its own small seal */
+.ink-resume {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0.5em 1em;
+  border: 1px dashed rgba(143, 29, 44, 0.5);
+  border-radius: 3px;
+  background: rgba(195, 40, 47, 0.05);
+  font-family: var(--font-latin);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--crimson);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  animation: ink-rise 0.8s var(--ease-out) 2.55s backwards;
+}
+.ink-resume:hover { background: rgba(195, 40, 47, 0.1); border-color: rgba(143, 29, 44, 0.8); }
+.ink-resume-seal {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 26px; height: 26px;
+  border-radius: 6px 3px 5px 3px;
+  background: linear-gradient(160deg, #c93a38, #a31f28);
+  color: var(--washi);
+  font-family: var(--font-kanji);
+  font-style: normal;
+  font-size: 0.95rem;
+}
+
+/* the colophon — signed with the painter's seal */
+.ink-note {
+  position: relative;
+  margin: 0.1rem 0 0;
+  padding-top: 1rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: rgba(74, 66, 56, 0.85);
+  max-width: 46ch;
+  animation: ink-rise 0.9s var(--ease-out) 2.7s backwards;
+}
+.ink-note::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 150px; height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent, rgba(38, 33, 26, 0.45), transparent);
+}
+.ink-note-seal {
+  display: inline-grid;
+  place-items: center;
+  width: 22px; height: 22px;
+  margin-left: 8px;
+  vertical-align: -5px;
+  border-radius: 5px 2px 4px 2px;
+  background: linear-gradient(160deg, #c93a38, #a31f28);
+  color: var(--washi);
+  font-family: var(--font-kanji);
+  font-style: normal;
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+/* sound toggle sits ON the paper here, so it wears ink instead of lacquer */
+.app-ink .sound-toggle {
+  background: rgba(242, 232, 207, 0.55);
+  color: var(--ink);
+  border-color: rgba(38, 33, 26, 0.45);
+  backdrop-filter: none;
+}
+.app-ink .sound-toggle:hover { border-color: rgba(143, 29, 44, 0.7); }
+.app-ink .sound-toggle-muted { color: rgba(33, 28, 22, 0.4); }
+.app-ink .sound-toggle:focus-visible { outline-color: rgba(143, 29, 44, 0.8); }
+
+/* ---------- responsive & perf ---------- */
+
+@media (max-width: 900px) {
+  .ink-bamboo { opacity: 0.5; }
+  .ink-sun { right: 3%; }
+  .ink-crane { right: 8%; top: 9%; }
+}
+
+@media (max-width: 640px) {
+  .ink-home { padding: 1.6rem 1.1rem 2.8rem; gap: 1.15rem; }
+  .ink-enso { width: 106px; height: 106px; }
+  .ink-crest-kanji { font-size: 3.3rem; }
+  .ink-title { letter-spacing: 0.07em; }
+  .ink-subtitle { font-size: 0.78rem; letter-spacing: 0.34em; margin-left: 0.34em; }
+  .ink-tagline { font-size: 0.95rem; }
+  .ink-form { gap: 1.15rem; }
+  .ink-actions { flex-direction: column; gap: 0.95rem; }
+  .ink-or { flex-direction: row; gap: 10px; }
+  .ink-or::before, .ink-or::after {
+    width: auto;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(74, 66, 56, 0.4), transparent);
+  }
+  .ink-note { font-size: 0.82rem; max-width: 40ch; }
+
+  /* the painting rearranges for the vertical scroll of paper */
+  .ink-sun { width: 130px; height: 130px; top: 3.5%; right: 2%; }
+  /* the crane crosses to the open top-left corner (the sun keeps top-right) */
+  .ink-crane { width: 88px; top: 4.5%; left: 5%; right: auto; }
+  .ink-bamboo { height: 58vh; left: -52px; opacity: 0.45; }
+  .ink-mountains { height: 22vh; min-height: 130px; }
+  .ink-mist { bottom: 10vh; height: 8vh; }
+
+  /* perf: phones skip displacement filters and shed petals */
+  .ink-enso-stroke, .ink-slash-stroke, .ink-underline path, .ink-cartouche-stroke,
+  .ink-ridge, .ink-stalk, .ink-seal::before { filter: none; }
+  .ink-petals span:nth-child(n + 6) { display: none; }
 }
