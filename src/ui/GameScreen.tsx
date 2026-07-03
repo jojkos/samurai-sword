@@ -1086,11 +1086,40 @@ function LogPanel(props: { view: PlayerView }) {
 
 // ---------------- result ----------------
 
+/** Brushed sumi-e underline that self-draws (stroke-dashoffset) — reused per row. */
+function InkRule(props: { className: string; delay?: number; strokeWidth?: number }) {
+  return (
+    <svg
+      className={props.className}
+      viewBox="0 0 300 10"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      style={props.delay != null ? ({ '--wd': `${props.delay}ms` } as React.CSSProperties) : undefined}
+    >
+      <path
+        pathLength="1"
+        d="M4 6 Q90 2 160 5 Q230 8 296 4"
+        fill="none"
+        strokeWidth={props.strokeWidth ?? 2.5}
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 /**
- * Endgame, in the order the heart reads it: 1) the verdict — VICTORY or DEFEAT
- * from this player's perspective, with the winning clan named; 2) the record
- * scroll — every warrior revealed with role, character and score math;
- * 3) the way onward. Entrances are staggered, transform/opacity only.
+ * Endgame, staged as a sumi-e finale in the order the heart reads it:
+ * 1) the verdict — the giant kanji (勝利 / 敗北) brush-painted in behind the
+ *    word, an ink disc blooming as a rising sun, a sword-slash cut beneath;
+ * 2) the record — a scroll that unrolls from its top rod, each clan settling
+ *    in turn, every warrior written onto the paper by a self-drawing stroke,
+ *    the victors crowned with a stamped hanko, friendly fire struck through
+ *    as a crimson ledger line;
+ * 3) the way onward — Play again / Leave pressed as vermilion & ink hanko.
+ * All motion is transform / opacity / clip-path / SVG-stroke — phone-safe,
+ * and every entrance fills `backwards`/`both` so reduced-motion lands on the
+ * finished painting instantly. The night duel shows through beneath, so a
+ * local #ink-brush filter is mounted here (InkScene isn't on this screen).
  */
 function ResultOverlay(props: { view: PlayerView; session: Session; onLeave: () => void }) {
   const { view, session } = props
@@ -1107,10 +1136,24 @@ function ResultOverlay(props: { view: PlayerView; session: Session; onLeave: () 
       Number(b.team === result.winnerTeam) - Number(a.team === result.winnerTeam) ||
       b.total - a.total,
   )
+  // a single running counter so warrior strokes draw one after another down the
+  // whole scroll, regardless of which clan they sit in
+  let stroke = 0
   return (
     <div className={`modal-backdrop result-backdrop ${victory ? 'result-victory' : 'result-defeat'}`}>
+      {/* brush-displacement filter, scoped to the finale (night screen has no InkScene) */}
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <filter id="ink-brush" x="-12%" y="-12%" width="124%" height="124%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="7" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </svg>
+
       <div className="result-stage">
         <div className="result-verdict">
+          {/* the rising sun / cold moon blooming behind the verdict */}
+          <div className="result-verdict-bloom" aria-hidden="true" />
+          {/* the giant kanji, brush-painted left-to-right behind the word */}
           <div className="result-verdict-kanji" aria-hidden="true">
             {victory ? '勝利' : '敗北'}
           </div>
@@ -1118,6 +1161,19 @@ function ResultOverlay(props: { view: PlayerView; session: Session; onLeave: () 
             {result.type === 'swordmaster' ? 'Sword Master · 剣聖' : 'The duel is decided'}
           </div>
           <h1 className="result-word">{victory ? 'Victory' : 'Defeat'}</h1>
+          {/* the sword-slash cut beneath the word — echoes the home title slash */}
+          <svg className="result-slash" viewBox="0 0 420 30" preserveAspectRatio="none" aria-hidden="true">
+            <path
+              className="result-slash-stroke" pathLength="1"
+              d="M8 20 Q130 8 250 15 Q340 20 412 10"
+              fill="none" strokeWidth="8" strokeLinecap="round"
+            />
+            <path
+              className="result-slash-stroke result-slash-echo" pathLength="1"
+              d="M16 26 Q150 18 292 21 Q360 23 408 18"
+              fill="none" strokeWidth="3" strokeLinecap="round"
+            />
+          </svg>
           <h2 className="result-winnerline">
             {swordmaster ? (
               <>
@@ -1133,72 +1189,88 @@ function ResultOverlay(props: { view: PlayerView; session: Session; onLeave: () 
 
         {teams.length > 0 && (
           <div className="result-scroll">
+            {/* the paper itself unrolls from the top rod; content settles on top */}
+            <div className="result-scroll-paper" aria-hidden="true" />
             <div className="result-clans">
-              {teams.map((t, i) => (
-                <section
-                  key={t.team}
-                  className={`result-clan ${t.team === result.winnerTeam ? 'result-clan-winner' : ''}`}
-                  style={{ '--i': i } as React.CSSProperties}
-                >
-                  <header className="result-clan-head">
-                    <h3 className="result-clan-name">
-                      {TEAM_LABEL[t.team]}
-                      {t.team === result.winnerTeam && (
-                        <span className="result-clan-crown">victors 勝</span>
-                      )}
-                    </h3>
-                    <div className="result-clan-total">
-                      {t.total}
-                      <span className="result-clan-pts">pt{t.total !== 1 ? 's' : ''}</span>
-                    </div>
-                  </header>
-                  {t.penalty > 0 && (
-                    <div className="result-penalty">
-                      −{t.penalty} mortal blow — the clan pays for felling its own
-                    </div>
-                  )}
-                  <ul className="result-warriors">
-                    {t.members.map((m) => {
-                      const p = view.players[m.seat]
-                      return (
-                        <li key={m.seat} className="result-warrior">
-                          <div className="result-warrior-id">
-                            <span className="result-warrior-name">{p.name}</span>
-                            {m.seat === view.seat && <span className="result-you-tag">you</span>}
-                            <span className={`seat-role-badge role-badge-${ROLE_INFO[m.role].team}`}>
-                              {ROLE_INFO[m.role].kanji} {ROLE_INFO[m.role].name}
-                            </span>
-                            <span className="result-warrior-char">
-                              <span className="char-kanji">{CHARACTER_KANJI[p.character]}</span>{' '}
-                              {CHARACTERS[p.character].name}
-                            </span>
-                          </div>
-                          <div className="result-warrior-math">
-                            <span>
-                              {m.honor} honor
-                              {m.multiplier > 1 && <em className="result-mult"> ×{m.multiplier}</em>}
-                              {m.daimyo > 0 && <em className="result-daimyo"> +{m.daimyo} daimyo</em>}
-                            </span>
-                            <span className="result-warrior-score">{m.score}</span>
-                          </div>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </section>
-              ))}
+              {teams.map((t, i) => {
+                const winner = t.team === result.winnerTeam
+                return (
+                  <section
+                    key={t.team}
+                    className={`result-clan ${winner ? 'result-clan-winner' : ''}`}
+                    style={{ '--i': i } as React.CSSProperties}
+                  >
+                    {/* the victors' hanko, stamped into the clan card's corner */}
+                    {winner && (
+                      <span className="result-clan-seal" aria-hidden="true">勝</span>
+                    )}
+                    <header className="result-clan-head">
+                      <h3 className="result-clan-name">
+                        {TEAM_LABEL[t.team]}
+                        {winner && <span className="result-clan-crown">victors</span>}
+                      </h3>
+                      <div className="result-clan-total">
+                        {t.total}
+                        <span className="result-clan-pts">pt{t.total !== 1 ? 's' : ''}</span>
+                      </div>
+                    </header>
+                    {t.penalty > 0 && (
+                      <div className="result-penalty">
+                        <span className="result-penalty-mark" aria-hidden="true">血</span>
+                        −{t.penalty} mortal blow — the clan pays for felling its own
+                      </div>
+                    )}
+                    <ul className="result-warriors">
+                      {t.members.map((m) => {
+                        const p = view.players[m.seat]
+                        const delay = 600 + stroke++ * 120
+                        return (
+                          <li key={m.seat} className="result-warrior">
+                            <div className="result-warrior-id">
+                              <span className="result-warrior-name">{p.name}</span>
+                              {m.seat === view.seat && <span className="result-you-tag">you</span>}
+                              <span className={`seat-role-badge role-badge-${ROLE_INFO[m.role].team}`}>
+                                {ROLE_INFO[m.role].kanji} {ROLE_INFO[m.role].name}
+                              </span>
+                              <span className="result-warrior-char">
+                                <span className="char-kanji">{CHARACTER_KANJI[p.character]}</span>{' '}
+                                {CHARACTERS[p.character].name}
+                              </span>
+                            </div>
+                            <div className="result-warrior-math">
+                              <span>
+                                {m.honor} honor
+                                {m.multiplier > 1 && <em className="result-mult"> ×{m.multiplier}</em>}
+                                {m.daimyo > 0 && <em className="result-daimyo"> +{m.daimyo} daimyo</em>}
+                              </span>
+                              <span className="result-warrior-score">{m.score}</span>
+                            </div>
+                            {/* the stroke that writes this warrior onto the record */}
+                            <InkRule className="result-warrior-brush" delay={delay} />
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </section>
+                )
+              })}
             </div>
           </div>
         )}
 
         <div className="result-actions result-cta">
           {session.playAgain && (
-            <button className="btn btn-primary" onClick={() => session.playAgain!()}>
-              Play again
+            <button
+              className="ink-seal ink-seal-vermilion result-seal"
+              onClick={() => session.playAgain!()}
+            >
+              <span className="ink-seal-kanji" aria-hidden="true">再</span>
+              <span className="ink-seal-text">Play again</span>
             </button>
           )}
-          <button className="btn btn-ghost" onClick={props.onLeave}>
-            Leave
+          <button className="ink-seal ink-seal-ink result-seal" onClick={props.onLeave}>
+            <span className="ink-seal-kanji" aria-hidden="true">退</span>
+            <span className="ink-seal-text">Leave</span>
           </button>
         </div>
       </div>

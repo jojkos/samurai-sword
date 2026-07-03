@@ -1541,10 +1541,25 @@ body {
 /* --- 1. the verdict moment --- */
 .result-verdict {
   position: relative;
-  padding: 1.7rem 0 0.4rem;
+  padding: 2rem 0 0.5rem;
   animation: result-rise 700ms var(--ease-out) both;
 }
-/* giant ink kanji ghosting behind the word */
+/* the rising sun (victory) / cold moon (defeat) blooming behind the verdict */
+.result-verdict-bloom {
+  position: absolute;
+  left: 50%; top: 46%;
+  width: min(360px, 80vw); aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(115, 128, 160, 0.34) 0%, rgba(115, 128, 160, 0.12) 44%, transparent 70%);
+  animation: result-bloom 1.3s var(--ease-out) 0.15s backwards, ink-sun-breathe 9s ease-in-out 2s infinite;
+}
+.result-victory .result-verdict-bloom {
+  background: radial-gradient(circle, rgba(243, 193, 75, 0.42) 0%, rgba(201, 155, 46, 0.16) 44%, transparent 70%);
+}
+@keyframes result-bloom { from { opacity: 0; transform: translate(-50%, -50%) scale(0.55); } }
+/* giant ink kanji, brush-painted left-to-right behind the word */
 .result-verdict-kanji {
   position: absolute;
   top: 50%;
@@ -1554,11 +1569,15 @@ body {
   font-size: clamp(6rem, 26vw, 9.5rem);
   line-height: 1;
   white-space: nowrap;
-  opacity: 0.13;
   pointer-events: none;
+  clip-path: inset(-30% 0 -30% 0); /* resting: fully painted (reduced-motion lands here) */
+  animation: result-kanji-paint 1s var(--ease-out) 0.3s backwards;
 }
-.result-victory .result-verdict-kanji { color: var(--gold-bright); }
-.result-defeat .result-verdict-kanji { color: #8f96ad; opacity: 0.11; }
+@keyframes result-kanji-paint {
+  from { clip-path: inset(-30% 100% -30% 0); opacity: 0; }
+}
+.result-victory .result-verdict-kanji { color: var(--gold-bright); opacity: 0.16; }
+.result-defeat .result-verdict-kanji { color: #8f96ad; opacity: 0.12; }
 .result-kicker {
   position: relative;
   font-size: 0.82rem;
@@ -1587,36 +1606,53 @@ body {
   color: #a99e8b;
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8);
 }
+/* the sword-slash cut beneath the word — echoes the home title slash */
+.result-slash {
+  position: relative;
+  display: block;
+  width: min(360px, 72vw); height: 22px;
+  margin: 0.4rem auto 0;
+  overflow: visible;
+}
+.result-slash-stroke {
+  stroke: var(--gold);
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  opacity: 0.9;
+  animation: ink-draw 0.55s var(--ease-strike) 1.35s backwards, ink-slash-breathe 7s ease-in-out 4.5s infinite;
+}
+.result-defeat .result-slash-stroke { stroke: #9096ad; opacity: 0.7; }
+.result-slash-echo {
+  opacity: 0.4;
+  animation-delay: 1.5s, 5s;
+}
 .result-winnerline {
   position: relative;
-  margin: 0.5em 0 0;
+  margin: 0.7em 0 0;
   font-weight: 400;
   font-size: clamp(1rem, 3.4vw, 1.25rem);
   letter-spacing: 0.06em;
   opacity: 0.92;
+  animation: result-rise 600ms var(--ease-out) 1.6s backwards;
 }
 .result-victory .result-winnerline { color: #f0e0ae; }
-.result-winnerline::after {
-  content: '';
-  display: block;
-  width: 160px;
-  height: 2px;
-  margin: 0.8em auto 0;
-  background: linear-gradient(90deg, transparent, rgba(201, 155, 46, 0.8), transparent);
-}
-.result-defeat .result-winnerline::after {
-  background: linear-gradient(90deg, transparent, rgba(150, 145, 160, 0.55), transparent);
-}
 @keyframes result-rise {
   from { opacity: 0; transform: translateY(16px) scale(0.97); }
 }
 
-/* --- 2. the record scroll --- */
+/* --- 2. the record scroll (unrolls from its top rod) --- */
 .result-scroll {
   position: relative;
   width: 100%;
-  margin-top: 1.4rem;
-  padding: 1.1rem 1.15rem 1.15rem;
+  margin-top: 1.6rem;
+  padding: 1.2rem 1.2rem 1.25rem;
+  color: var(--ink);
+  text-align: left;
+}
+/* the washi body unrolls downward; content settles on top of it */
+.result-scroll-paper {
+  position: absolute;
+  inset: 0;
   border: 1px solid rgba(28, 18, 10, 0.85);
   border-radius: 4px;
   background:
@@ -1628,12 +1664,12 @@ body {
     inset 0 0 0 1px rgba(201, 155, 46, 0.35),
     inset 0 0 30px rgba(60, 40, 15, 0.12),
     var(--shadow-far);
-  color: var(--ink);
-  text-align: left;
-  animation: result-rise 600ms var(--ease-out) 240ms both;
+  transform-origin: top center;
+  animation: result-unroll 800ms var(--ease-out) 380ms both;
 }
-/* scroll rods, as on the prompt scrolls */
-.result-scroll::before, .result-scroll::after {
+@keyframes result-unroll { from { transform: scaleY(0.02); } }
+/* scroll rods, top & bottom, riding the unrolling paper */
+.result-scroll-paper::before, .result-scroll-paper::after {
   content: '';
   position: absolute;
   left: -10px;
@@ -1643,22 +1679,25 @@ body {
   background: linear-gradient(180deg, #3a2620, #150e0b);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 230, 180, 0.15);
 }
-.result-scroll::before { top: -5px; }
-.result-scroll::after { bottom: -5px; }
+.result-scroll-paper::before { top: -5px; }
+.result-scroll-paper::after { bottom: -5px; }
 
 .result-clans {
+  position: relative; /* sit above the unrolling paper */
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 12px;
   align-items: start;
 }
 .result-clan {
+  position: relative;
   border: 1px solid rgba(33, 28, 22, 0.35);
   border-radius: 8px;
-  padding: 10px 13px 12px;
+  padding: 10px 13px 14px;
   background: rgba(255, 255, 255, 0.28);
   animation: result-rise 500ms var(--ease-out) both;
-  animation-delay: calc(420ms + var(--i, 0) * 130ms);
+  animation-delay: calc(640ms + var(--i, 0) * 150ms);
 }
 .result-clan-winner {
   outline: 3px solid var(--gold);
@@ -1666,9 +1705,10 @@ body {
   background:
     linear-gradient(115deg, rgba(243, 220, 138, 0.25), transparent 55%),
     rgba(255, 255, 255, 0.32);
-  position: relative;
   overflow: hidden;
 }
+/* clear a corner for the victors' hanko */
+.result-clan-winner .result-clan-head { padding-right: 44px; }
 /* a slow shine sweep crowns the winning clan */
 .result-clan-winner::before {
   content: '';
@@ -1682,6 +1722,24 @@ body {
 @keyframes shine-sweep {
   0% { transform: translateX(-100%); }
   55%, 100% { transform: translateX(100%); }
+}
+/* the victors' vermilion hanko, stamped into the clan card's corner */
+.result-clan-seal {
+  position: absolute;
+  top: 8px; right: 8px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 38px; height: 38px;
+  border-radius: 8px 4px 7px 3px;
+  background: linear-gradient(160deg, #c93a38, #a31f28);
+  color: var(--washi);
+  font-family: var(--font-kanji);
+  font-size: 1.35rem;
+  line-height: 1;
+  transform: rotate(6deg);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 232, 207, 0.45), 0 3px 9px rgba(74, 40, 20, 0.4);
+  animation: ink-bloom 0.55s var(--ease-out) 1s backwards;
 }
 .result-clan-head {
   display: flex;
@@ -1717,8 +1775,11 @@ body {
   letter-spacing: 0.1em;
   color: var(--ink-soft);
 }
-/* friendly fire: the mortal blow against one's own clan */
+/* friendly fire: the mortal blow struck through as a crimson ledger line */
 .result-penalty {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   margin: 8px 0 0;
   padding: 5px 9px;
   border-left: 3px solid var(--crimson);
@@ -1728,15 +1789,23 @@ body {
   font-size: 0.92rem;
   line-height: 1.4;
 }
+.result-penalty-mark {
+  flex-shrink: 0;
+  font-family: var(--font-kanji);
+  font-size: 1.05rem;
+  line-height: 1;
+  opacity: 0.85;
+}
 .result-warriors {
   list-style: none;
   margin: 6px 0 0;
   padding: 0;
 }
 .result-warrior {
+  position: relative;
   border-top: 1px dashed rgba(33, 28, 22, 0.28);
   margin-top: 7px;
-  padding-top: 7px;
+  padding: 7px 0 9px;
 }
 .result-warrior-id {
   display: flex;
@@ -1772,22 +1841,47 @@ body {
 .result-mult { color: var(--crimson); font-weight: 700; }
 .result-daimyo { color: #7a5c12; font-weight: 700; }
 .result-warrior-score { font-size: 1.2rem; font-weight: 700; color: var(--ink); }
+/* the brush that writes each warrior onto the record, one after another */
+.result-warrior-brush {
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 8px;
+  pointer-events: none;
+  overflow: visible;
+}
+.result-warrior-brush path {
+  stroke: #26211a;
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  opacity: 0.4;
+  animation: ink-draw 0.55s var(--ease-out) var(--wd, 600ms) backwards;
+}
 
-/* --- 3. the way onward --- */
+/* --- 3. the way onward — Play again / Leave as hanko seals --- */
 .result-actions { margin-top: 1.3rem; display: flex; gap: 12px; justify-content: center; }
 .result-cta {
+  margin-top: 1.6rem;
+  gap: 1rem;
   flex-wrap: wrap;
-  animation: result-rise 500ms var(--ease-out) 800ms both;
 }
-.result-cta .btn { min-height: 44px; min-width: 156px; font-size: 1.05rem; }
+/* reuse the home hanko seals, sized to the CTA row and stamped after the record */
+.result-cta .result-seal {
+  width: auto;
+  flex: 0 1 auto;
+  min-width: 190px;
+  animation-delay: 1.15s;
+}
+.result-cta .result-seal.ink-seal-ink { animation-delay: 1.3s; }
 
 @media (max-width: 640px) {
   .result-stage { width: 100%; }
-  .result-verdict { padding-top: 1rem; }
-  .result-scroll { padding: 0.9rem 0.8rem 1rem; }
+  .result-verdict { padding-top: 1.2rem; }
+  .result-scroll { padding: 1rem 0.85rem 1.05rem; }
   .result-clans { grid-template-columns: 1fr; }
-  .result-cta { width: 100%; }
-  .result-cta .btn { flex: 1 1 45%; }
+  .result-cta { width: 100%; flex-direction: column; align-items: center; }
+  .result-cta .result-seal { width: 100%; min-width: 0; max-width: 340px; }
+  /* perf: phones skip displacement filters on the finale's strokes */
+  .result-slash-stroke, .result-warrior-brush path { filter: none; }
 }
 
 /* ================= accessibility & small screens ================= */
