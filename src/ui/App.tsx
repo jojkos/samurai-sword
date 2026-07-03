@@ -400,6 +400,8 @@ export function App() {
 
           {/* the summons — a painted proclamation bearing the room's seal */}
           <section className="ink-panel ink-summons">
+            {/* the room's own hanko, pressed into the proclamation's corner */}
+            <span className="ink-summons-seal" aria-hidden="true">令</span>
             <span className="ink-label ink-label-center">The room code</span>
             <div className="ink-summons-row">
               <div className="ink-summons-code">
