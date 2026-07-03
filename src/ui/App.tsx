@@ -29,6 +29,10 @@ export function App() {
     () => new URLSearchParams(location.search).get('join')?.toUpperCase() ?? '',
   )
   const [soundOn, setSoundOn] = useState(() => sound.isEnabled())
+  // inline field affordance mirroring the error toast (name / room code)
+  const [fieldError, setFieldError] = useState<{ field: 'name' | 'code'; msg: string } | null>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+  const codeInputRef = useRef<HTMLInputElement>(null)
   const sessionRef = useRef<Session | null>(null)
   const hostSave = loadHostSave()
 
@@ -107,7 +111,12 @@ export function App() {
   }
 
   function createRoom() {
-    if (!name.trim()) return setError('First tell us your name, warrior.')
+    if (!name.trim()) {
+      setFieldError({ field: 'name', msg: 'First tell us your name, warrior.' })
+      nameInputRef.current?.focus()
+      return setError('First tell us your name, warrior.')
+    }
+    setFieldError(null)
     rememberName()
     clearHostSave()
     setDead(null)
@@ -126,8 +135,17 @@ export function App() {
   }
 
   function joinRoom() {
-    if (!name.trim()) return setError('First tell us your name, warrior.')
-    if (joinCode.trim().length < 4) return setError('Enter the 4-letter room code.')
+    if (!name.trim()) {
+      setFieldError({ field: 'name', msg: 'First tell us your name, warrior.' })
+      nameInputRef.current?.focus()
+      return setError('First tell us your name, warrior.')
+    }
+    if (joinCode.trim().length < 4) {
+      setFieldError({ field: 'code', msg: 'Enter the 4-letter room code.' })
+      codeInputRef.current?.focus()
+      return setError('Enter the 4-letter room code.')
+    }
+    setFieldError(null)
     rememberName()
     setDead(null)
     const session = new GuestSession(joinCode.trim(), name.trim(), events())
@@ -184,15 +202,28 @@ export function App() {
           </h1>
           <p className="home-sub">A card game of hidden roles and stolen honor — 3 to 7 warriors, online.</p>
           <div className="home-panel">
-            <label className="home-label" htmlFor="warrior-name">Your name, warrior</label>
-            <input
-              id="warrior-name"
-              className="input"
-              placeholder="e.g. Musashi"
-              maxLength={16}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <div className="home-field">
+              <label className="home-label" htmlFor="warrior-name">Your name, warrior</label>
+              <input
+                id="warrior-name"
+                ref={nameInputRef}
+                className={`input ${fieldError?.field === 'name' ? 'input-invalid' : ''}`}
+                placeholder="e.g. Musashi"
+                maxLength={16}
+                value={name}
+                aria-invalid={fieldError?.field === 'name' || undefined}
+                onChange={(e) => {
+                  setName(e.target.value)
+                  if (fieldError?.field === 'name') setFieldError(null)
+                }}
+                onKeyDown={(e) =>
+                  e.key === 'Enter' && (joinCode.trim().length === 4 ? joinRoom() : createRoom())
+                }
+              />
+              {fieldError?.field === 'name' && (
+                <span className="home-field-error" role="alert">{fieldError.msg}</span>
+              )}
+            </div>
             <div className="home-columns">
               <div className="home-column">
                 <span className="home-label">Gather your clan</span>
@@ -203,19 +234,27 @@ export function App() {
                 <span className="home-label">Answer the call</span>
                 <div className="home-join">
                   <input
-                    className="input input-code"
+                    ref={codeInputRef}
+                    className={`input input-code ${fieldError?.field === 'code' ? 'input-invalid' : ''}`}
                     placeholder="CODE"
                     maxLength={4}
                     value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    aria-invalid={fieldError?.field === 'code' || undefined}
+                    onChange={(e) => {
+                      setJoinCode(e.target.value.toUpperCase())
+                      if (fieldError?.field === 'code') setFieldError(null)
+                    }}
                     onKeyDown={(e) => e.key === 'Enter' && joinRoom()}
                   />
                   <button className="btn" onClick={joinRoom}>Join</button>
                 </div>
+                {fieldError?.field === 'code' && (
+                  <span className="home-field-error" role="alert">{fieldError.msg}</span>
+                )}
               </div>
             </div>
             {hostSave && (
-              <button className="btn btn-ghost" onClick={resumeRoom}>
+              <button className="btn btn-ghost home-resume" onClick={resumeRoom}>
                 ⟲ Resume hosting room {hostSave.code}
                 {hostSave.state ? ' (game in progress)' : ''}
               </button>
