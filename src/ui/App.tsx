@@ -661,10 +661,15 @@ function JoinQr(props: { code: string }) {
       alive = false
     }
   }, [props.code])
-  if (!src) return null
   return (
     <div className="ink-qr">
-      <img src={src} alt={`QR code to join room ${props.code}`} width={132} height={132} />
+      {/* reserve the box before the async QR resolves, so the summons row
+          doesn't reflow when it pops in */}
+      {src ? (
+        <img src={src} alt={`QR code to join room ${props.code}`} width={132} height={132} />
+      ) : (
+        <div className="ink-qr-skeleton" aria-hidden="true" />
+      )}
       <span className="ink-qr-hint">scan to join</span>
     </div>
   )

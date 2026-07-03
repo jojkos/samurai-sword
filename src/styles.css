@@ -1289,14 +1289,15 @@ body {
   backdrop-filter: blur(3px);
   display: grid;
   place-items: center;
-  animation: fade-in 150ms ease-out;
+  animation: fade-in 220ms ease-out;
 }
 .inspect-sheet {
   display: flex;
   align-items: center;
   gap: 22px;
   max-width: 94vw;
-  animation: inspect-open 180ms var(--ease-out);
+  /* a paper-reveal to match the modal unfurl, not a web-snappy 180ms pop */
+  animation: inspect-open 300ms var(--ease-overshoot);
 }
 @keyframes inspect-open {
   from { opacity: 0; transform: scale(0.92) translateY(8px); }
@@ -1329,11 +1330,12 @@ body {
 .inspect-type {
   display: inline-block;
   margin-top: 8px;
-  padding: 0 9px;
-  border-radius: 8px;
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  padding: 1px 10px;
+  border-radius: 3px 9px 3px 9px; /* hand-cut, not a web-app pill */
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  font-variant: small-caps;
+  text-transform: lowercase;
   color: var(--washi);
   background: var(--ink-soft);
 }
@@ -1969,6 +1971,9 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  /* the dusk veil is an opacity crossfade, not motion — keep a brief one so the
+     daylight→night backdrop swap softens instead of hard-cutting */
+  .ink-dusk { animation-duration: 520ms !important; }
 }
 
 @media (max-width: 760px) {
@@ -2935,12 +2940,14 @@ body {
 
 /* QR — inked border on washi (the code data itself is washi/ink, set in JoinQr) */
 .ink-qr { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.ink-qr img {
+.ink-qr img, .ink-qr-skeleton {
   width: 126px; height: 126px; border-radius: 6px;
   border: 1px solid rgba(38, 33, 26, 0.7);
   background: var(--washi);
   box-shadow: inset 0 0 0 1px rgba(143, 29, 44, 0.25), var(--shadow-contact);
 }
+/* holds the QR's place while it resolves — a brushed frame, no reflow */
+.ink-qr-skeleton { border-style: dashed; border-color: rgba(38, 33, 26, 0.4); box-shadow: none; }
 .ink-qr-hint {
   font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase;
   color: rgba(74, 66, 56, 0.7);
@@ -3049,7 +3056,7 @@ body {
   .ink-code-plate { min-width: 150px; min-height: 58px; }
   .ink-code-hero { font-size: 1.95rem; }
   .ink-summons-hint { max-width: 24ch; font-size: 0.78rem; }
-  .ink-qr img { width: 100px; height: 100px; }
+  .ink-qr img, .ink-qr-skeleton { width: 100px; height: 100px; }
   .ink-qr-hint { font-size: 0.6rem; letter-spacing: 0.16em; }
   /* one column of name plates; the empties collapse to one "seats open" line */
   .ink-seats { grid-template-columns: 1fr; gap: 7px; }
