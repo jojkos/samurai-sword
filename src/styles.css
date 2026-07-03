@@ -479,14 +479,38 @@ body {
 }
 
 .seat-turn {
-  transform: translate(-50%, -50%) scale(1.05);
+  transform: translate(-50%, -50%) scale(1.07);
+  z-index: 9; /* the active warrior lifts above neighbours it now overlaps */
   box-shadow:
-    0 0 0 3px rgba(243, 220, 138, 0.8),
-    0 0 30px rgba(243, 193, 75, 0.45),
+    0 0 0 3px rgba(243, 220, 138, 0.9),
+    0 0 40px rgba(243, 193, 75, 0.5),
     inset 0 0 0 1px rgba(201, 155, 46, 0.4),
     var(--shadow-contact), var(--shadow-soft);
   animation: turn-glow 1.8s ease-in-out infinite;
 }
+/* the spotlight brightens the tatami under the active seat and lets the rest
+   fall into shadow — a soft vignette that pulls the eye to whose turn it is.
+   @property makes the centre glide between seats instead of snapping. */
+@property --spot-x { syntax: '<length-percentage>'; inherits: false; initial-value: 50%; }
+@property --spot-y { syntax: '<length-percentage>'; inherits: false; initial-value: 50%; }
+.table-spotlight {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 4; /* over the tatami + piles, under the seats (5) */
+  background: radial-gradient(circle at var(--spot-x, 50%) var(--spot-y, 50%),
+    rgba(243, 193, 75, 0.12) 0%,
+    transparent 24%,
+    rgba(6, 3, 2, 0.36) 68%);
+  opacity: 0;
+  animation: spotlight-in 0.6s var(--ease-out) forwards;
+  transition: opacity 0.4s ease, --spot-x 0.55s var(--ease-out), --spot-y 0.55s var(--ease-out);
+}
+@keyframes spotlight-in { to { opacity: 1; } }
+/* while it is someone's turn (and you are not mid-aim), the inactive warriors
+   dim so the lit one reads instantly. harmless seats keep their own greying. */
+.table-focus .seat:not(.seat-turn):not(.seat-harmless) { filter: brightness(0.82) saturate(0.94); }
 /* floating marker so the active player is unmistakable at a glance */
 .seat-turn::before {
   content: '出番';
@@ -1097,6 +1121,27 @@ body {
   100% { box-shadow: 0 0 0 28px rgba(195, 40, 47, 0); }
 }
 
+/* card-backs travelling the table: the opening deal, draws, and steals.
+   Endpoints are px offsets from centre (--fx/--fy → --tx/--ty) so only the
+   compositor works. `both` holds the final (invisible) frame until removal. */
+.flight-layer { position: absolute; inset: 0; pointer-events: none; }
+.flight {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  z-index: 30;
+  pointer-events: none;
+  will-change: transform, opacity;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.5));
+  animation: card-flight 680ms var(--ease-out) both;
+}
+@keyframes card-flight {
+  0% { opacity: 0; transform: translate(-50%, -50%) translate(var(--fx, 0px), var(--fy, 0px)) scale(0.5) rotate(-8deg); }
+  14% { opacity: 1; }
+  86% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) translate(var(--tx, 0px), var(--ty, 0px)) scale(0.62) rotate(3deg); }
+}
+
 /* floating ±N over a seat when honor (◆ gold) or resilience (●) changes */
 .floater {
   position: absolute;
@@ -1454,17 +1499,22 @@ body {
   align-items: flex-end;
 }
 .log-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: inherit;
   letter-spacing: 0.05em;
   background: rgba(12, 7, 4, 0.55);
   color: rgba(242, 232, 207, 0.9);
   border: 1px solid rgba(242, 232, 207, 0.25);
-  border-radius: 14px;
+  border-left: 2px solid rgba(195, 40, 47, 0.6); /* a brushed vermilion edge */
+  border-radius: 13px 5px 12px 6px; /* hand-cut, echoing the hanko seals */
   padding: 0.28em 1em;
   font-size: 0.8rem;
   cursor: pointer;
   backdrop-filter: blur(3px);
 }
+.log-seal { font-family: var(--font-kanji); color: var(--gold-bright); font-size: 0.9rem; line-height: 1; }
 .log-entries {
   margin-top: 6px;
   width: 100%;
@@ -1472,13 +1522,13 @@ body {
   overflow-y: auto;
   background: linear-gradient(170deg, rgba(18, 10, 6, 0.88), rgba(12, 7, 4, 0.84));
   border: 1px solid rgba(242, 232, 207, 0.14);
-  border-radius: 8px;
+  border-radius: 10px 8px 9px 11px; /* hand-cut edge, matching the ink panels */
   padding: 12px 12px 16px;
   color: rgba(242, 232, 207, 0.86);
   font-size: 0.8rem;
   line-height: 1.5;
   backdrop-filter: blur(4px);
-  box-shadow: var(--shadow-soft);
+  box-shadow: inset 0 0 0 1px rgba(201, 155, 46, 0.16), var(--shadow-soft);
   scrollbar-width: thin;
   scrollbar-color: rgba(201, 155, 46, 0.4) transparent;
   /* fade lines out at the edges instead of cutting mid-glyph */
@@ -1975,7 +2025,7 @@ body {
   .log-entries, .modal-backdrop, .inspect-backdrop, .ceremony,
   .pile-count, .role-badge, .log-toggle, .sound-toggle, .waiting-banner,
   .showcase-ribbon { backdrop-filter: none; }
-  .card-frame, .card-seal, .card-back-mon { filter: none; }
+  .card-frame, .card-seal, .card-back-mon, .flight { filter: none; }
   .ember:nth-child(n + 7) { display: none; }
 }
 
@@ -2401,6 +2451,21 @@ body {
   outline: 2px solid rgba(143, 29, 44, 0.8);
   outline-offset: 3px;
 }
+
+/* in-game hanko: the seal look, but present at once (no staged home entrance)
+   and sized to a control rather than a full-width home CTA */
+.ink-seal-live {
+  animation: none;
+  opacity: 1;
+  width: auto;
+  min-width: 132px;
+}
+/* the duel screen has no InkScene, so #ink-brush isn't mounted — drop the
+   displacement filter here (an unresolved filter ref would hide the stamp) */
+.ink-seal-live::before { filter: none; }
+.ink-seal-sm { min-height: 44px; min-width: 0; padding: 0.32em 0.9em; gap: 7px; }
+.ink-seal-sm .ink-seal-kanji { font-size: 1.15rem; }
+.ink-seal-sm .ink-seal-text { font-size: 0.85rem; letter-spacing: 0.04em; }
 
 /* join code in a painted cartouche + its seal */
 .ink-join { display: flex; align-items: stretch; gap: 0.7rem; animation: ink-rise 0.7s var(--ease-out) 2.3s backwards; }

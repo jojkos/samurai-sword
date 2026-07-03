@@ -25,6 +25,16 @@ interface Floater {
   kind: 'honor' | 'resilience'
   delta: number
 }
+
+/** One card-back in flight — endpoints are px offsets from the table centre. */
+interface Flight {
+  key: number
+  fx: number
+  fy: number
+  tx: number
+  ty: number
+  delay: number
+}
 import { sound } from './sound'
 
 export function GameScreen(props: { view: PlayerView; session: Session; onLeave: () => void }) {
@@ -293,6 +303,7 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
           ))}
 
           <PlayShowcase view={view} positions={positions} />
+          <CardFlights view={view} positions={positions} reduced={reduced} />
 
           {floaters.map((f) => (
             <div
@@ -423,6 +434,20 @@ function useTouchDevice() {
     return () => mq.removeEventListener('change', onChange)
   }, [])
   return touch
+}
+
+/** True when the viewer asked for reduced motion; SSR-safe (no matchMedia → false). */
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(
+    () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches,
+  )
+  useEffect(() => {
+    const mq = matchMedia('(prefers-reduced-motion: reduce)')
+    const onChange = () => setReduced(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return reduced
 }
 
 /** True below the phone breakpoint; SSR-safe (no matchMedia in node → false). */
@@ -638,6 +663,111 @@ function PlayShowcase(props: { view: PlayerView; positions: { left: number; top:
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Card-backs that physically travel the table: the opening deal, every draw
+ * from the deck, and Diversion/Geisha steals. All transform/opacity only, all
+ * measured in px from table centre so the flight animates the compositor and
+ * never touches layout. Silent under reduced motion (nothing spawns). */
+function CardFlights(props: {
+  view: PlayerView
+  positions: { left: number; top: number }[]
+  reduced: boolean
+}) {
+  const { view, positions, reduced } = props
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [flights, setFlights] = useState<Flight[]>([])
+  const keyRef = useRef(0)
+  const seenLen = useRef(view.log.length)
+  const firstRun = useRef(true)
+
+  useEffect(() => {
+    if (reduced) return
+    const table = rootRef.current?.parentElement
+    const w = table?.clientWidth ?? 0
+    const h = table?.clientHeight ?? 0
+    // px offset from table centre to a seat (matches PlayShowcase's math)
+    const seatOff = (seat: number) => ({
+      dx: ((positions[seat].left - 50) / 100) * w,
+      dy: ((positions[seat].top - 46) / 100) * h,
+    })
+    const anchor = (a: number | 'deck' | 'discard') =>
+      typeof a === 'number' ? seatOff(a) : { dx: 0, dy: 0 }
+
+    const spawn = (list: Flight[]) => {
+      if (!list.length) return
+      setFlights((f) => [...f, ...list].slice(-32))
+      const ttl = Math.max(...list.map((x) => x.delay)) + 900
+      setTimeout(() => setFlights((f) => f.filter((x) => !list.includes(x))), ttl)
+    }
+
+    // opening deal: two rounds around the ring, deck → every seat
+    const dealWave = () => {
+      const list: Flight[] = []
+      let step = 0
+      for (let round = 0; round < 2; round++) {
+        for (const p of view.players) {
+          const to = seatOff(p.seat)
+          list.push({ key: ++keyRef.current, fx: 0, fy: 0, tx: to.dx, ty: to.dy, delay: step++ * 80 })
+        }
+      }
+      spawn(list)
+    }
+
+    if (!w || !h) {
+      seenLen.current = view.log.length
+      firstRun.current = false
+      return
+    }
+
+    // first mount: deal a fresh game, but never replay it on a mid-game rejoin
+    if (firstRun.current) {
+      firstRun.current = false
+      seenLen.current = view.log.length
+      if (view.log.length < 8) dealWave()
+      return
+    }
+    // "Play again" resets the chronicle → deal the new hand
+    if (view.log.length < seenLen.current) {
+      seenLen.current = view.log.length
+      dealWave()
+      return
+    }
+    // new chronicle lines → draws and steals fly card-backs across the table
+    const list: Flight[] = []
+    for (let i = seenLen.current; i < view.log.length; i++) {
+      const ev = flightFromLog(view.log[i].text, view.players)
+      if (!ev) continue
+      const from = anchor(ev.from)
+      const to = anchor(ev.to)
+      for (let c = 0; c < ev.count; c++) {
+        list.push({ key: ++keyRef.current, fx: from.dx, fy: from.dy, tx: to.dx, ty: to.dy, delay: c * 95 })
+      }
+    }
+    seenLen.current = view.log.length
+    spawn(list)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.log])
+
+  return (
+    <div className="flight-layer" ref={rootRef} aria-hidden="true">
+      {flights.map((f) => (
+        <div
+          key={f.key}
+          className="flight"
+          style={{
+            ['--fx' as string]: `${f.fx}px`,
+            ['--fy' as string]: `${f.fy}px`,
+            ['--tx' as string]: `${f.tx}px`,
+            ['--ty' as string]: `${f.ty}px`,
+            animationDelay: `${f.delay}ms`,
+          }}
+        >
+          <CardBack size="mini" />
+        </div>
+      ))}
     </div>
   )
 }
@@ -878,15 +1008,20 @@ function Controls(props: {
     <div className="controls">
       {nobunagaReady && (
         <button
-          className="btn btn-small"
+          className="ink-seal ink-seal-ink ink-seal-live ink-seal-sm"
           onClick={() => session.sendIntent({ t: 'nobunaga' })}
           title="Nobunaga: discard 1 Resilience (not the last) to draw 1 card"
         >
-          信長 sacrifice 1 ♥ → draw
+          <span className="ink-seal-kanji" aria-hidden="true">信</span>
+          <span className="ink-seal-text">sacrifice 1 ♥ → draw</span>
         </button>
       )}
-      <button className="btn btn-primary" onClick={() => session.sendIntent({ t: 'endTurn' })}>
-        End turn
+      <button
+        className="ink-seal ink-seal-vermilion ink-seal-live"
+        onClick={() => session.sendIntent({ t: 'endTurn' })}
+      >
+        <span className="ink-seal-kanji" aria-hidden="true">終</span>
+        <span className="ink-seal-text">End turn</span>
       </button>
     </div>
   )
@@ -1083,6 +1218,7 @@ function LogPanel(props: { view: PlayerView }) {
   return (
     <div className={`log ${open ? '' : 'log-closed'}`}>
       <button className="log-toggle" onClick={() => setOpen(!open)}>
+        <span className="log-seal" aria-hidden="true">記</span>
         {open ? '▾ chronicle' : '▸ chronicle'}
       </button>
       {open && (
