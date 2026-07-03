@@ -1712,24 +1712,155 @@ body {
 
 /* ================= endgame ================= */
 
-.result-backdrop { background: rgba(8, 5, 3, 0.8); }
-.result { max-width: min(94vw, 780px); }
-.result-title {
-  margin: 0 0 0.15em;
-  font-size: 2rem;
-  font-weight: 400;
-  letter-spacing: 0.12em;
+/* Hierarchy of the ending: 1) the verdict lands first on open darkness,
+   2) the record scroll unrolls beneath it, 3) the way onward arrives last.
+   Every entrance is transform/opacity only (phone-safe). */
+
+.result-backdrop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  padding: max(3vh, 14px) 16px max(4vh, 20px);
+  background: radial-gradient(ellipse at 50% 28%, rgba(33, 21, 9, 0.92), rgba(7, 4, 2, 0.97));
 }
-.result-winner { margin: 0 0 0.9em; color: var(--crimson); letter-spacing: 0.04em; }
-.result-teams { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; text-align: left; }
-.result-team {
-  flex: 1 1 200px;
+/* defeat drains the warmth from the night */
+.result-defeat.result-backdrop {
+  background: radial-gradient(ellipse at 50% 28%, rgba(17, 16, 25, 0.93), rgba(4, 3, 6, 0.97));
+}
+.result-stage {
+  margin: auto; /* centered when short, scrolls from the top when tall */
+  width: min(94vw, 700px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: var(--washi);
+}
+
+/* --- 1. the verdict moment --- */
+.result-verdict {
+  position: relative;
+  padding: 1.7rem 0 0.4rem;
+  animation: result-rise 700ms var(--ease-out) both;
+}
+/* giant ink kanji ghosting behind the word */
+.result-verdict-kanji {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -54%);
+  font-family: var(--font-kanji);
+  font-size: clamp(6rem, 26vw, 9.5rem);
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0.13;
+  pointer-events: none;
+}
+.result-victory .result-verdict-kanji { color: var(--gold-bright); }
+.result-defeat .result-verdict-kanji { color: #8f96ad; opacity: 0.11; }
+.result-kicker {
+  position: relative;
+  font-size: 0.82rem;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+.result-word {
+  position: relative;
+  margin: 0.08em 0 0;
+  font-weight: 400;
+  font-size: clamp(2.7rem, 11vw, 4.6rem);
+  line-height: 1.05;
+  letter-spacing: 0.26em;
+  text-indent: 0.26em; /* recenters the tracked capitals */
+  text-transform: uppercase;
+}
+.result-victory .result-word {
+  color: var(--gold-bright);
+  text-shadow:
+    0 0 46px rgba(243, 193, 75, 0.55),
+    0 0 12px rgba(243, 220, 138, 0.35),
+    0 2px 0 rgba(70, 45, 8, 0.8);
+}
+.result-defeat .result-word {
+  color: #a99e8b;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8);
+}
+.result-winnerline {
+  position: relative;
+  margin: 0.5em 0 0;
+  font-weight: 400;
+  font-size: clamp(1rem, 3.4vw, 1.25rem);
+  letter-spacing: 0.06em;
+  opacity: 0.92;
+}
+.result-victory .result-winnerline { color: #f0e0ae; }
+.result-winnerline::after {
+  content: '';
+  display: block;
+  width: 160px;
+  height: 2px;
+  margin: 0.8em auto 0;
+  background: linear-gradient(90deg, transparent, rgba(201, 155, 46, 0.8), transparent);
+}
+.result-defeat .result-winnerline::after {
+  background: linear-gradient(90deg, transparent, rgba(150, 145, 160, 0.55), transparent);
+}
+@keyframes result-rise {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+}
+
+/* --- 2. the record scroll --- */
+.result-scroll {
+  position: relative;
+  width: 100%;
+  margin-top: 1.4rem;
+  padding: 1.1rem 1.15rem 1.15rem;
+  border: 1px solid rgba(28, 18, 10, 0.85);
+  border-radius: 4px;
+  background:
+    var(--washi-fiber),
+    var(--washi-grain),
+    linear-gradient(170deg, #f6edd6 0%, #e6d7b4 100%);
+  background-blend-mode: multiply, multiply, normal;
+  box-shadow:
+    inset 0 0 0 1px rgba(201, 155, 46, 0.35),
+    inset 0 0 30px rgba(60, 40, 15, 0.12),
+    var(--shadow-far);
+  color: var(--ink);
+  text-align: left;
+  animation: result-rise 600ms var(--ease-out) 240ms both;
+}
+/* scroll rods, as on the prompt scrolls */
+.result-scroll::before, .result-scroll::after {
+  content: '';
+  position: absolute;
+  left: -10px;
+  right: -10px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #3a2620, #150e0b);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 230, 180, 0.15);
+}
+.result-scroll::before { top: -5px; }
+.result-scroll::after { bottom: -5px; }
+
+.result-clans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.result-clan {
   border: 1px solid rgba(33, 28, 22, 0.35);
   border-radius: 8px;
-  padding: 11px 15px;
+  padding: 10px 13px 12px;
   background: rgba(255, 255, 255, 0.28);
+  animation: result-rise 500ms var(--ease-out) both;
+  animation-delay: calc(420ms + var(--i, 0) * 130ms);
 }
-.result-team-winner {
+.result-clan-winner {
   outline: 3px solid var(--gold);
   box-shadow: 0 0 26px rgba(201, 155, 46, 0.45);
   background:
@@ -1738,8 +1869,8 @@ body {
   position: relative;
   overflow: hidden;
 }
-/* a slow shine sweep crowns the winning team */
-.result-team-winner::before {
+/* a slow shine sweep crowns the winning clan */
+.result-clan-winner::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -1752,16 +1883,119 @@ body {
   0% { transform: translateX(-100%); }
   55%, 100% { transform: translateX(100%); }
 }
-.result-team h3 { margin: 0 0 0.4em; font-size: 1rem; letter-spacing: 0.04em; }
-.result-team h3 em { color: var(--crimson); font-size: 0.85em; }
-.result-team ul { margin: 0; padding-left: 1.1em; font-size: 0.88rem; line-height: 1.55; }
+.result-clan-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.result-clan-name {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.result-clan-crown {
+  margin-left: 0.6em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7a5c12;
+  white-space: nowrap;
+}
+.result-clan-total {
+  font-size: 1.45rem;
+  line-height: 1;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.result-clan-pts {
+  margin-left: 3px;
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: var(--ink-soft);
+}
+/* friendly fire: the mortal blow against one's own clan */
+.result-penalty {
+  margin: 8px 0 0;
+  padding: 5px 9px;
+  border-left: 3px solid var(--crimson);
+  border-radius: 0 4px 4px 0;
+  background: rgba(143, 29, 44, 0.1);
+  color: var(--crimson);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+.result-warriors {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.result-warrior {
+  border-top: 1px dashed rgba(33, 28, 22, 0.28);
+  margin-top: 7px;
+  padding-top: 7px;
+}
+.result-warrior-id {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.result-warrior-name { font-weight: 700; font-size: 1rem; }
+.result-you-tag {
+  padding: 0 6px;
+  border: 1px solid rgba(201, 155, 46, 0.7);
+  border-radius: 8px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1.6;
+  text-transform: uppercase;
+  color: #7a5c12;
+}
+/* keep the reused badge readable inside the scroll, phones included */
+.result-warrior .seat-role-badge { font-size: 0.62rem; margin-top: 0; }
+.result-warrior-char { font-size: 0.85rem; font-style: italic; color: var(--ink-soft); }
+.result-warrior-math {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+.result-warrior-math em { font-style: normal; }
+.result-mult { color: var(--crimson); font-weight: 700; }
+.result-daimyo { color: #7a5c12; font-weight: 700; }
+.result-warrior-score { font-size: 1.2rem; font-weight: 700; color: var(--ink); }
+
+/* --- 3. the way onward --- */
 .result-actions { margin-top: 1.3rem; display: flex; gap: 12px; justify-content: center; }
+.result-cta {
+  flex-wrap: wrap;
+  animation: result-rise 500ms var(--ease-out) 800ms both;
+}
+.result-cta .btn { min-height: 44px; min-width: 156px; font-size: 1.05rem; }
+
+@media (max-width: 640px) {
+  .result-stage { width: 100%; }
+  .result-verdict { padding-top: 1rem; }
+  .result-scroll { padding: 0.9rem 0.8rem 1rem; }
+  .result-clans { grid-template-columns: 1fr; }
+  .result-cta { width: 100%; }
+  .result-cta .btn { flex: 1 1 45%; }
+}
 
 /* ================= accessibility & small screens ================= */
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0.01ms !important; /* staggered entrances (endgame) become instant */
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
@@ -1844,7 +2078,6 @@ body {
 
   .modal { padding: 1.2rem 1rem 1.1rem; max-width: 94vw; max-height: 84vh; }
   .modal h2 { font-size: 1.15rem; }
-  .result-title { font-size: 1.5rem; }
 
   .inspect-sheet {
     flex-direction: column;

@@ -1086,46 +1086,120 @@ function LogPanel(props: { view: PlayerView }) {
 
 // ---------------- result ----------------
 
+/**
+ * Endgame, in the order the heart reads it: 1) the verdict — VICTORY or DEFEAT
+ * from this player's perspective, with the winning clan named; 2) the record
+ * scroll — every warrior revealed with role, character and score math;
+ * 3) the way onward. Entrances are staggered, transform/opacity only.
+ */
 function ResultOverlay(props: { view: PlayerView; session: Session; onLeave: () => void }) {
   const { view, session } = props
   const result = view.result!
-  const teams = [...result.teams].sort((a, b) => b.total - a.total)
+  const victory = result.winnerTeam === view.you.team
+  const winnerName = TEAM_LABEL[result.winnerTeam]
+  const swordmaster =
+    result.type === 'swordmaster' && result.swordmasterSeat != null
+      ? view.players[result.swordmasterSeat]
+      : null
+  // winner clan leads the scroll; the rest rank by score
+  const teams = [...result.teams].sort(
+    (a, b) =>
+      Number(b.team === result.winnerTeam) - Number(a.team === result.winnerTeam) ||
+      b.total - a.total,
+  )
   return (
-    <div className="modal-backdrop result-backdrop">
-      <div className="modal result">
-        <h1 className="result-title">
-          {result.type === 'swordmaster' ? 'Victory of the Sword Master!' : 'The duel is decided'}
-        </h1>
-        <h2 className={`result-winner result-${result.winnerTeam}`}>
-          {TEAM_LABEL[result.winnerTeam]} win{result.winnerTeam === 'ronin' ? 's' : ''}
-          {result.type === 'swordmaster' && result.swordmasterSeat != null && (
-            <> — {view.players[result.swordmasterSeat].name} stood alone</>
-          )}
-        </h2>
-        <div className="result-teams">
-          {teams.map((t) => (
-            <div key={t.team} className={`result-team ${t.team === result.winnerTeam ? 'result-team-winner' : ''}`}>
-              <h3>
-                {TEAM_LABEL[t.team]} — {t.total} pt{t.total !== 1 ? 's' : ''}
-                {t.penalty > 0 && <em> (−{t.penalty} mortal blow)</em>}
-              </h3>
-              <ul>
-                {t.members.map((m) => (
-                  <li key={m.seat}>
-                    <strong>{view.players[m.seat].name}</strong> — {ROLE_INFO[m.role].kanji}{' '}
-                    {ROLE_INFO[m.role].name}: {m.honor} honor ×{m.multiplier}
-                    {m.daimyo > 0 && <> +{m.daimyo} daimyo</>} = {m.score}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+    <div className={`modal-backdrop result-backdrop ${victory ? 'result-victory' : 'result-defeat'}`}>
+      <div className="result-stage">
+        <div className="result-verdict">
+          <div className="result-verdict-kanji" aria-hidden="true">
+            {victory ? '勝利' : '敗北'}
+          </div>
+          <div className="result-kicker">
+            {result.type === 'swordmaster' ? 'Sword Master · 剣聖' : 'The duel is decided'}
+          </div>
+          <h1 className="result-word">{victory ? 'Victory' : 'Defeat'}</h1>
+          <h2 className="result-winnerline">
+            {swordmaster ? (
+              <>
+                {swordmaster.name} stood alone — the {winnerName} clan prevails
+              </>
+            ) : (
+              <>
+                {winnerName} {result.winnerTeam === 'ronin' ? 'takes' : 'take'} the field
+              </>
+            )}
+          </h2>
         </div>
-        <div className="result-actions">
+
+        {teams.length > 0 && (
+          <div className="result-scroll">
+            <div className="result-clans">
+              {teams.map((t, i) => (
+                <section
+                  key={t.team}
+                  className={`result-clan ${t.team === result.winnerTeam ? 'result-clan-winner' : ''}`}
+                  style={{ '--i': i } as React.CSSProperties}
+                >
+                  <header className="result-clan-head">
+                    <h3 className="result-clan-name">
+                      {TEAM_LABEL[t.team]}
+                      {t.team === result.winnerTeam && (
+                        <span className="result-clan-crown">victors 勝</span>
+                      )}
+                    </h3>
+                    <div className="result-clan-total">
+                      {t.total}
+                      <span className="result-clan-pts">pt{t.total !== 1 ? 's' : ''}</span>
+                    </div>
+                  </header>
+                  {t.penalty > 0 && (
+                    <div className="result-penalty">
+                      −{t.penalty} mortal blow — the clan pays for felling its own
+                    </div>
+                  )}
+                  <ul className="result-warriors">
+                    {t.members.map((m) => {
+                      const p = view.players[m.seat]
+                      return (
+                        <li key={m.seat} className="result-warrior">
+                          <div className="result-warrior-id">
+                            <span className="result-warrior-name">{p.name}</span>
+                            {m.seat === view.seat && <span className="result-you-tag">you</span>}
+                            <span className={`seat-role-badge role-badge-${ROLE_INFO[m.role].team}`}>
+                              {ROLE_INFO[m.role].kanji} {ROLE_INFO[m.role].name}
+                            </span>
+                            <span className="result-warrior-char">
+                              <span className="char-kanji">{CHARACTER_KANJI[p.character]}</span>{' '}
+                              {CHARACTERS[p.character].name}
+                            </span>
+                          </div>
+                          <div className="result-warrior-math">
+                            <span>
+                              {m.honor} honor
+                              {m.multiplier > 1 && <em className="result-mult"> ×{m.multiplier}</em>}
+                              {m.daimyo > 0 && <em className="result-daimyo"> +{m.daimyo} daimyo</em>}
+                            </span>
+                            <span className="result-warrior-score">{m.score}</span>
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="result-actions result-cta">
           {session.playAgain && (
-            <button className="btn btn-primary" onClick={() => session.playAgain!()}>Play again</button>
+            <button className="btn btn-primary" onClick={() => session.playAgain!()}>
+              Play again
+            </button>
           )}
-          <button className="btn btn-ghost" onClick={props.onLeave}>Leave</button>
+          <button className="btn btn-ghost" onClick={props.onLeave}>
+            Leave
+          </button>
         </div>
       </div>
     </div>
