@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PlayerView } from '../engine/types'
 import {
   clearGuestRoom,
@@ -41,6 +41,52 @@ export function App() {
   const codeInputRef = useRef<HTMLInputElement>(null)
   const sessionRef = useRef<Session | null>(null)
   const hostSave = loadHostSave()
+  // always-current screen, so the once-registered popstate handler isn't stale
+  const screenRef = useRef(screen)
+  screenRef.current = screen
+
+  /** Close the session and return home WITHOUT touching history (used by both the
+   * Leave button and the browser Back button). */
+  const teardown = useCallback(() => {
+    // cancelling during 'connecting' keeps the host save so a reload can resume
+    if (sessionRef.current instanceof HostSession && screenRef.current.s !== 'connecting') {
+      clearHostSave()
+    }
+    sessionRef.current?.close()
+    sessionRef.current = null
+    setView(null)
+    setDead(null)
+    setCopied(false)
+    setScreen({ s: 'home' })
+  }, [])
+
+  /** Reflect "in a room" in the URL as its own history entry, so browser Back
+   * pops out of the room. pushState keeps the in-memory PeerJS session alive
+   * (no reload), so navigation never drops the connection. */
+  function pushRoomUrl(code: string) {
+    try {
+      history.pushState({ inRoom: true, code }, '', `?room=${code}`)
+    } catch {
+      /* history unavailable — non-fatal */
+    }
+  }
+
+  // Back/forward: leaving the room entry tears the session down; going forward
+  // into a room already left just keeps the URL honest (can't resurrect it).
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      const inRoom = !!(e.state && (e.state as { inRoom?: boolean }).inRoom)
+      if (!inRoom && sessionRef.current) {
+        teardown()
+      } else if (inRoom && !sessionRef.current) {
+        try {
+          history.replaceState({ inRoom: false }, '', location.pathname)
+        } catch { /* non-fatal */ }
+      }
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [teardown])
 
   useEffect(() => {
     if (error) {
@@ -105,6 +151,7 @@ export function App() {
       const session = new GuestSession(room.code, room.name, events())
       sessionRef.current = session
       setScreen({ s: 'connecting', code: session.code })
+      pushRoomUrl(session.code)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -143,6 +190,7 @@ export function App() {
     const session = new HostSession(name.trim(), events())
     sessionRef.current = session
     setScreen({ s: 'connecting', code: session.code })
+    pushRoomUrl(session.code)
   }
 
   function resumeRoom() {
@@ -152,6 +200,7 @@ export function App() {
     const session = new HostSession(save.roster.names[0], events(), save)
     sessionRef.current = session
     setScreen({ s: 'connecting', code: session.code })
+    pushRoomUrl(session.code)
   }
 
   function joinRoom() {
@@ -171,6 +220,7 @@ export function App() {
     const session = new GuestSession(joinCode.trim(), name.trim(), events())
     sessionRef.current = session
     setScreen({ s: 'connecting', code: session.code })
+    pushRoomUrl(session.code)
   }
 
   function copyInvite(code: string) {
@@ -181,15 +231,11 @@ export function App() {
   }
 
   function leave() {
-    // a deliberate exit from the lobby/game closes the room for good; cancelling
-    // a connection attempt keeps the save so a reload can still resume it
-    if (sessionRef.current instanceof HostSession && screen.s !== 'connecting') clearHostSave()
-    sessionRef.current?.close()
-    sessionRef.current = null
-    setView(null)
-    setDead(null)
-    setCopied(false)
-    setScreen({ s: 'home' })
+    teardown()
+    // record the return-home as its own history entry (Back from here won't re-enter)
+    try {
+      history.pushState({ inRoom: false }, '', location.pathname)
+    } catch { /* non-fatal */ }
   }
 
   const session = sessionRef.current
