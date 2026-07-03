@@ -364,14 +364,58 @@ export function App() {
 
       {screen.s === 'connecting' && (
         <div className="ink-connecting">
-          {/* an ensō that keeps re-drawing itself while the browsers find each other */}
-          <svg className="ink-spinner" viewBox="0 0 100 100" aria-hidden="true">
-            <path
-              className="ink-spinner-stroke" pathLength="1"
-              d="M78 22 C56 8 26 16 18 42 C10 70 30 92 58 88 C82 84 94 60 84 38"
-              fill="none" stroke="#26211a" strokeWidth="6" strokeLinecap="round"
-            />
-          </svg>
+          {/* the torii — a threshold painting itself while the browsers find each
+              other, a paper lantern lit at its heart as the thread binds. the gate
+              foreshadows the dusk-fall: cross it and the duel begins at night. */}
+          <div className="ink-torii-scene" aria-hidden="true">
+            <div className="ink-torii-glow" />
+            <svg className="ink-torii" viewBox="0 0 240 210" preserveAspectRatio="xMidYMax meet">
+              {/* stepping stones approaching the gate */}
+              <g className="ink-torii-path" fill="#4a4238">
+                <ellipse className="ink-torii-stone" cx="120" cy="200" rx="20" ry="5" opacity="0.5" />
+                <ellipse className="ink-torii-stone" cx="120" cy="182" rx="13" ry="3.5" opacity="0.4" />
+                <ellipse className="ink-torii-stone" cx="120" cy="169" rx="8" ry="2.4" opacity="0.32" />
+              </g>
+              {/* pillars, leaning subtly inward */}
+              <path
+                className="ink-torii-stroke ink-torii-p1" pathLength="1"
+                d="M60 188 L67 54" fill="none" stroke="#26211a" strokeWidth="8" strokeLinecap="round"
+              />
+              <path
+                className="ink-torii-stroke ink-torii-p2" pathLength="1"
+                d="M180 188 L173 54" fill="none" stroke="#26211a" strokeWidth="8" strokeLinecap="round"
+              />
+              {/* nuki — the tie beam */}
+              <path
+                className="ink-torii-stroke ink-torii-nuki" pathLength="1"
+                d="M50 96 L190 96" fill="none" stroke="#26211a" strokeWidth="7" strokeLinecap="round"
+              />
+              {/* gakuzuka — the short centre post carrying the lantern */}
+              <path
+                className="ink-torii-stroke ink-torii-post" pathLength="1"
+                d="M120 66 L120 96" fill="none" stroke="#26211a" strokeWidth="4" strokeLinecap="round"
+              />
+              {/* shimaki — the straight second beam */}
+              <path
+                className="ink-torii-stroke ink-torii-shimaki" pathLength="1"
+                d="M40 66 L200 66" fill="none" stroke="#26211a" strokeWidth="7" strokeLinecap="round"
+              />
+              {/* kasagi — the crowning beam, upturned at the ends (sori) */}
+              <path
+                className="ink-torii-stroke ink-torii-kasagi" pathLength="1"
+                d="M28 50 Q120 62 212 50" fill="none" stroke="#26211a" strokeWidth="9" strokeLinecap="round"
+              />
+            </svg>
+            {/* the paper lantern (chōchin), lit as the connection binds */}
+            <div className="ink-lantern">
+              <span className="ink-lantern-kanji">刀</span>
+            </div>
+            {/* embers rising from the lantern — quiet, looping proof of life */}
+            <span className="ink-spark ink-spark-1" />
+            <span className="ink-spark ink-spark-2" />
+            <span className="ink-spark ink-spark-3" />
+          </div>
+          <p className="ink-connecting-eyebrow">門 · Crossing the threshold</p>
           <h2 className="ink-connecting-title">
             Opening room <strong className="ink-connecting-code">{screen.code}</strong>
           </h2>

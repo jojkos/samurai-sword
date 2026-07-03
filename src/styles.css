@@ -2493,35 +2493,124 @@ body {
   100% { opacity: 0; }
 }
 
-/* ---------- connecting: an ensō re-drawing itself while peers find each other ---------- */
+/* ---------- connecting: a torii painting itself, a lantern lit at its heart ---------- */
+/* the gate is the threshold to the duel — crossing it is the dusk-fall to night.
+   the strokes draw once (ink-draw, staggered), then the lantern is "lit" and
+   breathes as looping proof the browsers are still binding their thread. */
 .ink-connecting {
   margin: auto;
-  display: flex; flex-direction: column; align-items: center; gap: 1rem;
+  display: flex; flex-direction: column; align-items: center; gap: 0.55rem;
   padding: 2rem 1.4rem;
   color: var(--ink); text-align: center;
 }
-.ink-spinner { width: 78px; height: 78px; overflow: visible; animation: ink-spin 3.4s linear infinite; }
-@keyframes ink-spin { to { transform: rotate(360deg); } }
-.ink-spinner-stroke {
-  stroke-dasharray: 1;
-  filter: url(#ink-brush);
-  opacity: 0.85;
-  animation: ink-spin-draw 1.5s ease-in-out infinite;
+
+/* the painting stage — fixed aspect so the lantern lands on the tie beam */
+.ink-torii-scene {
+  position: relative;
+  width: min(268px, 72vw);
+  aspect-ratio: 240 / 210;
+  margin-bottom: 0.5rem;
 }
-@keyframes ink-spin-draw {
-  0% { stroke-dashoffset: 1; }
-  50% { stroke-dashoffset: 0; }
-  100% { stroke-dashoffset: -1; }
+.ink-torii { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ink-torii-stroke {
+  stroke-dasharray: 1; stroke-dashoffset: 0;
+  filter: url(#ink-brush);
+  animation: ink-draw 0.7s var(--ease-out) backwards;
+}
+/* draw order: pillars rise, beams cross, crown lands last */
+.ink-torii-p1      { animation-delay: 0.15s; }
+.ink-torii-p2      { animation-delay: 0.28s; }
+.ink-torii-nuki    { animation-delay: 0.5s; }
+.ink-torii-post    { animation-delay: 0.62s; }
+.ink-torii-shimaki { animation-delay: 0.68s; }
+.ink-torii-kasagi  { animation-delay: 0.82s; animation-timing-function: var(--ease-strike); }
+/* stepping stones wash in beneath the gate */
+.ink-torii-stone { animation: ink-fade 0.6s var(--ease-out) backwards; }
+.ink-torii-path .ink-torii-stone:nth-child(1) { animation-delay: 0.05s; }
+.ink-torii-path .ink-torii-stone:nth-child(2) { animation-delay: 0.18s; }
+.ink-torii-path .ink-torii-stone:nth-child(3) { animation-delay: 0.3s; }
+
+/* warm halo behind the lantern — the light being lit, then breathing */
+.ink-torii-glow {
+  position: absolute; left: 50%; top: 57%;
+  width: 62%; aspect-ratio: 1; transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 178, 92, 0.55), rgba(224, 120, 48, 0.22) 42%, transparent 70%);
+  opacity: 0;
+  animation: ink-lantern-lit 0.9s var(--ease-out) 1.1s forwards, ink-lantern-breathe 4.2s ease-in-out 2s infinite;
+}
+@keyframes ink-lantern-lit { from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes ink-lantern-breathe { 0%, 100% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.09); } }
+
+/* the paper lantern (chōchin) hanging from the tie beam */
+.ink-lantern {
+  position: absolute; left: 50%; top: 57%;
+  width: 15.5%; aspect-ratio: 3 / 4;
+  transform: translate(-50%, -50%);
+  border-radius: 46% / 30%;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 5px, rgba(122, 20, 32, 0.28) 5px 6px),
+    linear-gradient(180deg, #f4c04e, #e07a30 78%, #c14620);
+  box-shadow:
+    inset 0 0 6px rgba(255, 226, 170, 0.7),
+    inset 0 -6px 10px rgba(122, 20, 32, 0.35),
+    0 0 16px rgba(255, 170, 80, 0.5);
+  display: grid; place-items: center;
+  transform-origin: 50% -30%;
+  opacity: 0;
+  animation: ink-lantern-lit 0.7s var(--ease-out) 1.15s forwards, ink-lantern-sway 5.5s ease-in-out 2s infinite;
+}
+/* the cap and the tassel top & tail the lantern */
+.ink-lantern::before {
+  content: ''; position: absolute; top: -13%; left: 50%; transform: translateX(-50%);
+  width: 46%; height: 16%; border-radius: 2px 2px 1px 1px;
+  background: linear-gradient(180deg, #3a342b, #26211a);
+}
+.ink-lantern::after {
+  content: ''; position: absolute; bottom: -18%; left: 50%; transform: translateX(-50%);
+  width: 10%; height: 20%; border-radius: 0 0 40% 40%;
+  background: linear-gradient(180deg, #26211a, transparent);
+}
+.ink-lantern-kanji {
+  font-family: var(--font-kanji); font-weight: 700;
+  font-size: clamp(0.9rem, 3.4vw, 1.15rem); line-height: 1;
+  color: #3a1410; opacity: 0.72;
+}
+@keyframes ink-lantern-sway { 0%, 100% { transform: translate(-50%, -50%) rotate(-2.2deg); } 50% { transform: translate(-50%, -50%) rotate(2.2deg); } }
+
+/* embers lifting off the lantern — small, transform/opacity only, phone-safe */
+.ink-spark {
+  position: absolute; left: 50%; top: 55%;
+  width: 4px; height: 4px; border-radius: 50%;
+  background: radial-gradient(circle, #ffd98a, rgba(224, 120, 48, 0.6));
+  opacity: 0;
+  animation: ink-spark-rise 3.4s ease-in-out infinite;
+}
+.ink-spark-1 { animation-delay: 2.2s; }
+.ink-spark-2 { margin-left: -9px; animation-delay: 3.4s; }
+.ink-spark-3 { margin-left: 7px; animation-delay: 4.5s; }
+@keyframes ink-spark-rise {
+  0% { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+  15% { opacity: 0.9; }
+  70% { opacity: 0.5; }
+  100% { transform: translate(calc(-50% + 6px), -46px) scale(0.4); opacity: 0; }
+}
+
+.ink-connecting-eyebrow {
+  margin: 0;
+  font-family: var(--font-kanji);
+  font-size: 0.78rem; letter-spacing: 0.2em; color: #8a6a15;
+  animation: ink-rise 0.7s var(--ease-out) 0.9s backwards;
 }
 .ink-connecting-title {
-  margin: 0.4rem 0 0;
+  margin: 0.1rem 0 0;
   font-size: clamp(1.5rem, 5vw, 2rem); font-weight: 500; letter-spacing: 0.04em;
-  animation: ink-rise 0.7s var(--ease-out) 0.2s backwards;
+  animation: ink-rise 0.7s var(--ease-out) 1s backwards;
 }
 .ink-connecting-code { color: var(--crimson); font-weight: 600; letter-spacing: 0.14em; }
 .ink-connecting-sub {
   margin: 0; font-style: italic; color: rgba(74, 66, 56, 0.8);
-  animation: ink-rise 0.7s var(--ease-out) 0.35s backwards;
+  animation: ink-rise 0.7s var(--ease-out) 1.15s backwards;
 }
 
 /* ---------- lobby: the clan gathering ---------- */
@@ -2759,5 +2848,6 @@ body {
 
   /* perf: phones skip displacement filters here too */
   .ink-lobby-rule-stroke, .ink-code-frame-stroke, .ink-seat-brush-stroke,
-  .ink-spinner-stroke { filter: none; }
+  .ink-torii-stroke { filter: none; }
+  .ink-torii-scene { width: min(240px, 68vw); }
 }
