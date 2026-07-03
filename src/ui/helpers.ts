@@ -108,6 +108,48 @@ export function showcaseFromLog(
   return { kind, actorSeat: actor.seat, isAttack: verb[1] === 'attacks' }
 }
 
+/** A card physically travelling across the table, parsed from a chronicle line.
+ * `'deck'` origin and `'discard'` destination both resolve to the table centre. */
+export interface FlightEvent {
+  from: number | 'deck'
+  to: number | 'discard'
+  count: number
+}
+
+/** Turn a chronicle line into a card-flight, or null if nothing moved.
+ * Reuses the same longest-name-first matching as {@link showcaseFromLog} so a
+ * warrior named after a card is never mistaken for one. */
+export function flightFromLog(
+  text: string,
+  players: readonly { seat: number; name: string }[],
+): FlightEvent | null {
+  if (text.startsWith('—')) return null
+  const byLen = [...players].sort((a, b) => b.name.length - a.name.length)
+  const actor = byLen.find((p) => text.startsWith(p.name + ' '))
+  if (!actor) return null
+  const rest = text.slice(actor.name.length)
+
+  // draws fly deck → the drawer (cap the visible fan so Tea Ceremony stays sane)
+  const drawn = rest.match(/^ draws (\d+) card/)
+  if (drawn) return { from: 'deck', to: actor.seat, count: Math.min(3, Number(drawn[1])) }
+  if (/^ takes the top card of the discard/.test(rest)) return { from: 'deck', to: actor.seat, count: 1 }
+  if (/^ sacrifices 1 Resilience to draw/.test(rest)) return { from: 'deck', to: actor.seat, count: 1 }
+
+  // Diversion is a true steal: the card flies victim → actor
+  if (/^ plays Diversion and steals/.test(rest)) {
+    const target = byLen.find((p) => rest.includes('from ' + p.name))
+    if (target) return { from: target.seat, to: actor.seat, count: 1 }
+  }
+  // Geisha forces a discard: the card flies victim → the centre pile
+  const geisha = rest.indexOf('plays Geisha:')
+  if (geisha >= 0) {
+    const after = rest.slice(geisha + 'plays Geisha:'.length).trimStart()
+    const target = byLen.find((p) => after.startsWith(p.name))
+    if (target) return { from: target.seat, to: 'discard', count: 1 }
+  }
+  return null
+}
+
 /** Distance between two seats, skipping harmless intermediates (mirrors the engine). */
 export function viewDistance(view: PlayerView, from: number, to: number): number {
   const n = view.playerCount

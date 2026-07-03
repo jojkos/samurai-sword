@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { baseHonor, cardKindInText, showcaseFromLog } from './helpers'
+import { baseHonor, cardKindInText, flightFromLog, showcaseFromLog } from './helpers'
 import type { PlayerView } from '../engine/types'
 
 const players = [
@@ -58,6 +58,44 @@ describe('showcaseFromLog', () => {
       showcaseFromLog('Bushido reveals Nodachi — a Weapon! Jonas must choose.', players),
     ).toBeNull()
     expect(showcaseFromLog("— Jonas's turn —", players)).toBeNull()
+  })
+})
+
+describe('flightFromLog', () => {
+  it('a draw flies deck → the drawer, capped at 3', () => {
+    expect(flightFromLog('Jonas draws 2 cards.', players)).toEqual({ from: 'deck', to: 1, count: 2 })
+    expect(flightFromLog('Jo draws 1 card.', players)).toEqual({ from: 'deck', to: 0, count: 1 })
+    expect(flightFromLog('Katana draws 5 cards.', players)).toEqual({ from: 'deck', to: 2, count: 3 })
+  })
+
+  it('discard-pile pickup and Nobunaga sacrifice fly deck → seat', () => {
+    expect(flightFromLog('Jo takes the top card of the discard pile.', players)).toEqual({
+      from: 'deck', to: 0, count: 1,
+    })
+    expect(flightFromLog('Jonas sacrifices 1 Resilience to draw a card.', players)).toEqual({
+      from: 'deck', to: 1, count: 1,
+    })
+  })
+
+  it('Diversion steals victim → actor', () => {
+    expect(
+      flightFromLog('Jonas plays Diversion and steals a random card from Jo.', players),
+    ).toEqual({ from: 0, to: 1, count: 1 })
+  })
+
+  it('Geisha sends the victim’s card to the centre pile', () => {
+    expect(flightFromLog('Katana plays Geisha: Jo discards a random card.', players)).toEqual({
+      from: 0, to: 'discard', count: 1,
+    })
+    expect(flightFromLog('Jo plays Geisha: Jonas discards Bushido.', players)).toEqual({
+      from: 1, to: 'discard', count: 1,
+    })
+  })
+
+  it('lines with no card movement do not fly', () => {
+    expect(flightFromLog('Jonas suffers 2 wounds.', players)).toBeNull()
+    expect(flightFromLog('Jo attacks Jonas with Kiseru (2 wounds).', players)).toBeNull()
+    expect(flightFromLog("— Jonas's turn —", players)).toBeNull()
   })
 })
 

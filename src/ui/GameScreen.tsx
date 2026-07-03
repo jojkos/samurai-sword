@@ -7,6 +7,7 @@ import {
   baseHonor,
   cardAction,
   CHARACTER_KANJI,
+  flightFromLog,
   HIDDEN_ROLE_TEXT,
   ROLE_GOAL,
   ROLE_INFO,
@@ -40,6 +41,7 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   // fresh games have a near-empty log; a mid-game rejoin must not replay the ceremony
   const [ceremony, setCeremony] = useState(() => view.log.length < 8)
   const touch = useTouchDevice()
+  const reduced = useReducedMotion()
   const [impact, setImpact] = useState<{ seat: number; n: number } | null>(null)
   const prevView = useRef(view)
 
@@ -215,12 +217,27 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
     session.sendIntent({ t: 'playProperty', card: card.id })
   }
 
+  // the active warrior is spotlit and lifted; everyone else dims (but not while
+  // you are aiming a card — then the out-of-reach fade does the talking)
+  const activeSeat = view.phase === 'play' ? view.turnSeat : null
+  const aiming = targetMode !== null
+
   return (
     <div className="game">
       <Embers />
       <div className={`table-scene ${impact ? 'shake' : ''}`}>
-        <div className="table">
+        <div className={`table ${activeSeat !== null && !aiming ? 'table-focus' : ''}`}>
           <div className="table-inner" />
+          {activeSeat !== null && (
+            <div
+              className="table-spotlight"
+              aria-hidden="true"
+              style={{
+                ['--spot-x' as string]: `${positions[activeSeat].left}%`,
+                ['--spot-y' as string]: `${positions[activeSeat].top}%`,
+              }}
+            />
+          )}
           <div className="table-center">
             <div className="pile">
               <span className="pile-shadow" aria-hidden="true" />
