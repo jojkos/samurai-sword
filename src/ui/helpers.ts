@@ -157,11 +157,15 @@ export function strikeFromLog(
   players: readonly { seat: number; name: string }[],
 ): { from: number; to: number } | null {
   if (text.startsWith('—')) return null
+  // anchor on the engine's full sentence shape — `A attacks B with W (N wound…)`
+  // — so a warrior whose NAME contains ' attacks ' or another player's name
+  // can neither invent a slash nor redirect one (names are free text)
+  if (!/ \(\d+ wound/.test(text)) return null
   const byLen = [...players].sort((a, b) => b.name.length - a.name.length)
   const actor = byLen.find((p) => text.startsWith(p.name + ' attacks '))
   if (!actor) return null
   const rest = text.slice(actor.name.length + ' attacks '.length)
-  const victim = byLen.find((p) => rest.startsWith(p.name + ' '))
+  const victim = byLen.find((p) => rest.startsWith(p.name + ' with '))
   if (!victim || victim.seat === actor.seat) return null
   return { from: actor.seat, to: victim.seat }
 }

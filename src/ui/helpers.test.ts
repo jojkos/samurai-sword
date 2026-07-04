@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { baseHonor, cardKindInText, flightFromLog, showcaseFromLog } from './helpers'
+import { baseHonor, cardKindInText, flightFromLog, showcaseFromLog, strikeFromLog } from './helpers'
 import type { PlayerView } from '../engine/types'
 
 const players = [
@@ -58,6 +58,48 @@ describe('showcaseFromLog', () => {
       showcaseFromLog('Bushido reveals Nodachi — a Weapon! Jonas must choose.', players),
     ).toBeNull()
     expect(showcaseFromLog("— Jonas's turn —", players)).toBeNull()
+  })
+})
+
+describe('strikeFromLog', () => {
+  it('parses a full attack sentence into attacker → victim', () => {
+    expect(strikeFromLog('Jonas attacks Jo with Katana (2 wounds).', players)).toEqual({
+      from: 1,
+      to: 0,
+    })
+  })
+
+  it('ignores non-attack lines', () => {
+    expect(strikeFromLog('Jonas draws 2 cards.', players)).toBeNull()
+    expect(strikeFromLog("— Jonas's turn —", players)).toBeNull()
+    expect(strikeFromLog('Jonas plays Battle Cry!', players)).toBeNull()
+  })
+
+  it("a victim whose name is a prefix of another player's is not misattributed", () => {
+    const tricky = [
+      { seat: 0, name: 'Aya' },
+      { seat: 1, name: 'Rin' },
+      { seat: 2, name: 'Rin with' }, // adversarial: contains the sentence glue
+    ]
+    expect(strikeFromLog('Aya attacks Rin with Katana (2 wounds).', tricky)).toEqual({
+      from: 0,
+      to: 1,
+    })
+  })
+
+  it("a player named like an attack sentence can't spawn phantom strikes", () => {
+    const tricky = [
+      { seat: 0, name: 'Al' },
+      { seat: 1, name: 'Bo' },
+      { seat: 2, name: 'Bo attacks Al' }, // adversarial 13-char name
+    ]
+    // an ordinary draw line from seat 2 must not read as an attack
+    expect(strikeFromLog('Bo attacks Al draws 2 cards.', tricky)).toBeNull()
+    // and a REAL attack by that player still parses
+    expect(strikeFromLog('Bo attacks Al attacks Bo with Bokken (1 wound).', tricky)).toEqual({
+      from: 2,
+      to: 1,
+    })
   })
 })
 

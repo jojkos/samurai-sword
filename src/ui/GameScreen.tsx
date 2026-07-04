@@ -595,7 +595,12 @@ function StrikeLayer(props: {
   const keyRef = useRef(0)
   const seenLen = useRef(view.log.length)
   useEffect(() => {
-    if (reduced) return
+    if (reduced) {
+      // keep consuming the log so flipping the OS preference off mid-game
+      // doesn't replay a burst of stale, turns-old strikes
+      seenLen.current = view.log.length
+      return
+    }
     if (view.log.length < seenLen.current) {
       seenLen.current = view.log.length // log reset (Play again)
       return
@@ -838,7 +843,12 @@ function CardFlights(props: {
   const firstRun = useRef(true)
 
   useEffect(() => {
-    if (reduced) return
+    if (reduced) {
+      // consume the log even while motion is off (same reason as StrikeLayer)
+      seenLen.current = view.log.length
+      firstRun.current = false
+      return
+    }
     const table = rootRef.current?.parentElement
     const w = table?.clientWidth ?? 0
     const h = table?.clientHeight ?? 0
