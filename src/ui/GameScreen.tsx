@@ -12,6 +12,7 @@ import {
   ROLE_GOAL,
   ROLE_INFO,
   showcaseFromLog,
+  strikeFromLog,
   TEAM_LABEL,
   viewAttackDifficulty,
   weaponStatLines,
@@ -308,6 +309,7 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
 
           <PlayShowcase view={view} positions={positions} />
           <CardFlights view={view} positions={positions} reduced={reduced} />
+          <StrikeLayer view={view} positions={positions} reduced={reduced} />
 
           {floaters.map((f) => (
             <div
@@ -336,23 +338,36 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
         <RoleCeremony view={view} onDone={() => setCeremony(false)} />
       )}
 
-      <StatusBar
-        view={view}
-        myTurn={myTurn}
-        onShowRole={() => setInfoSeat(view.seat)}
-        onLeave={() => setConfirmLeave(true)}
-      />
+      {!view.result && (
+        <StatusBar
+          view={view}
+          myTurn={myTurn}
+          onShowRole={() => setInfoSeat(view.seat)}
+          onLeave={() => setConfirmLeave(true)}
+        />
+      )}
 
-      {blocked && <div className="toast toast-info">{blocked}</div>}
-      {targetMode && (
-        <div className="toast toast-info">
-          Choose a target for {CARD_DEFS[targetMode.card.kind].name} — or click the card again to cancel.
+      {/* feedback lives where the eyes are — a ribbon just above the hand fan,
+          not a toast at the far top of the screen */}
+      {(blocked || targetMode) && (
+        <div className={`aim-hint ${blocked ? 'aim-hint-blocked' : ''}`} role="status">
+          {blocked ??
+            `Choose a target for ${CARD_DEFS[targetMode!.card.kind].name} — or tap the card again to cancel`}
         </div>
       )}
 
+      {/* the pointer-tethered targeting arrow (mouse only — touch is tap-tap) */}
+      {!touch && <TargetArrow active={aiming} />}
+
       <Hand view={view} myTurn={myTurn} targetMode={targetMode} onCardClick={clickHandCard} />
 
-      <Controls view={view} myTurn={myTurn} session={session} onPlayProperty={playedProperty} />
+      <Controls
+        view={view}
+        myTurn={myTurn}
+        aiming={aiming}
+        session={session}
+        onPlayProperty={playedProperty}
+      />
 
       {geishaSeat !== null && targetMode?.kind === 'geisha' && (
         <GeishaMenu
@@ -425,7 +440,7 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
         </div>
       )}
 
-      <LogPanel view={view} />
+      {!view.result && <LogPanel view={view} touch={touch} />}
 
       {view.result && <ResultOverlay view={view} session={session} onLeave={props.onLeave} />}
     </div>
@@ -505,6 +520,130 @@ const Embers = memo(function Embers() {
     </div>
   )
 })
+
+// ---------------- targeting arrow ----------------
+
+/**
+ * The card game's signature affordance: a brush-stroked bezier from the lifted
+ * card to the pointer, turning vermilion over a legal seat. All updates go
+ * straight to the DOM inside one rAF (no React state per pointermove), and
+ * the layer only exists while aiming — zero cost otherwise.
+ */
+function TargetArrow(props: { active: boolean }) {
+  const svgRef = useRef<SVGSVGElement>(null)
+  useEffect(() => {
+    if (!props.active) return
+    const svg = svgRef.current
+    if (!svg) return
+    const stroke = svg.querySelector('.target-arrow-stroke') as SVGPathElement | null
+    const tip = svg.querySelector('.target-arrow-tip') as SVGCircleElement | null
+    if (!stroke || !tip) return
+    let raf = 0
+    let px = 0
+    let py = 0
+    const render = () => {
+      raf = 0
+      const sel = document.querySelector('.card-selected')
+      if (!sel) return
+      const r = sel.getBoundingClientRect()
+      const x0 = r.left + r.width / 2
+      const y0 = r.top + r.height * 0.15
+      // control point: pulled up toward the table so the rope arcs like a throw
+      const cx = (x0 + px) / 2
+      const cy = Math.min(y0, py) - Math.abs(px - x0) * 0.18 - 48
+      stroke.setAttribute('d', `M ${x0} ${y0} Q ${cx} ${cy} ${px} ${py}`)
+      tip.setAttribute('cx', String(px))
+      tip.setAttribute('cy', String(py))
+      const over = document.elementFromPoint(px, py)
+      svg.classList.toggle('target-arrow-hot', !!over?.closest('.seat-targetable'))
+      svg.style.opacity = '1'
+    }
+    const onMove = (e: PointerEvent) => {
+      px = e.clientX
+      py = e.clientY
+      if (!raf) raf = requestAnimationFrame(render)
+    }
+    window.addEventListener('pointermove', onMove)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [props.active])
+  if (!props.active) return null
+  return (
+    <svg ref={svgRef} className="target-arrow" aria-hidden="true">
+      <path className="target-arrow-stroke" d="" fill="none" />
+      <circle className="target-arrow-tip" r="7" />
+    </svg>
+  )
+}
+
+// ---------------- attack strike ----------------
+
+/** A slash streak that travels attacker → victim on every weapon attack, so
+ * who-hit-whom reads instantly at any table size. Transform/opacity only. */
+function StrikeLayer(props: {
+  view: PlayerView
+  positions: { left: number; top: number }[]
+  reduced: boolean
+}) {
+  const { view, positions, reduced } = props
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [strikes, setStrikes] = useState<
+    { key: number; fx: number; fy: number; tx: number; ty: number; angle: number }[]
+  >([])
+  const keyRef = useRef(0)
+  const seenLen = useRef(view.log.length)
+  useEffect(() => {
+    if (reduced) return
+    if (view.log.length < seenLen.current) {
+      seenLen.current = view.log.length // log reset (Play again)
+      return
+    }
+    const table = rootRef.current?.parentElement
+    const w = table?.clientWidth ?? 0
+    const h = table?.clientHeight ?? 0
+    const fresh: typeof strikes = []
+    for (let i = seenLen.current; i < view.log.length; i++) {
+      const ev = strikeFromLog(view.log[i].text, view.players)
+      if (!ev || !w || !h) continue
+      const fx = ((positions[ev.from].left - 50) / 100) * w
+      const fy = ((positions[ev.from].top - 46) / 100) * h
+      const tx = ((positions[ev.to].left - 50) / 100) * w
+      const ty = ((positions[ev.to].top - 46) / 100) * h
+      fresh.push({
+        key: ++keyRef.current,
+        fx, fy, tx, ty,
+        angle: (Math.atan2(ty - fy, tx - fx) * 180) / Math.PI,
+      })
+    }
+    seenLen.current = view.log.length
+    if (fresh.length) {
+      setStrikes((s) => [...s, ...fresh].slice(-6))
+      setTimeout(() => setStrikes((s) => s.filter((x) => !fresh.includes(x))), 1400)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view.log])
+  return (
+    <div className="strike-layer" ref={rootRef} aria-hidden="true">
+      {strikes.map((s) => (
+        <div
+          key={s.key}
+          className="strike"
+          style={{
+            ['--fx' as string]: `${s.fx}px`,
+            ['--fy' as string]: `${s.fy}px`,
+            ['--tx' as string]: `${s.tx}px`,
+            ['--ty' as string]: `${s.ty}px`,
+            ['--angle' as string]: `${s.angle}deg`,
+          }}
+        >
+          <span className="strike-blade" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 // ---------------- seat ----------------
 
@@ -814,6 +953,10 @@ function RoleCeremony(props: { view: PlayerView; onDone: () => void }) {
           </h2>
           <p>{char.text}</p>
         </div>
+        <p className="ceremony-legend">
+          <span className="token token-resilience" /> resilience — your wounds ·{' '}
+          <span className="token token-honor" /> honor — the score
+        </p>
         <button className="ink-seal ink-seal-vermilion ink-seal-live">
           <span className="ink-seal-kanji" aria-hidden="true">始</span>
           <span className="ink-seal-text">The duel begins</span>
@@ -927,7 +1070,8 @@ function SeatInfoModal(props: {
           </h3>
           <p>{char.text}</p>
           <p className="info-meta">
-            Resilience {p.resilience}/{p.maxResilience} · Honor {p.honor} · {p.handCount} card
+            <span className="token token-resilience" /> Resilience {p.resilience}/{p.maxResilience} ·{' '}
+            <span className="token token-honor" /> Honor {p.honor} · {p.handCount} card
             {p.handCount === 1 ? '' : 's'} in hand
             {p.harmless ? ' · Harmless (cannot be attacked, does not count for distance)' : ''}
           </p>
@@ -1020,15 +1164,22 @@ function Hand(props: {
 function Controls(props: {
   view: PlayerView
   myTurn: boolean
+  aiming: boolean
   session: Session
   onPlayProperty: (card: Card) => void
 }) {
   const { view, myTurn, session } = props
+  // when nothing in hand can be played, the End turn seal breathes so nobody
+  // stalls wondering what they're missing (a premium-card-game guidance state)
+  const spent = useMemo(
+    () => myTurn && view.you.hand.every((c) => 'blocked' in cardAction(view, c)),
+    [myTurn, view],
+  )
   if (!myTurn) return null
   const me = view.players[view.seat]
   const nobunagaReady = me.character === 'nobunaga' && me.resilience >= 2
   return (
-    <div className="controls">
+    <div className={`controls ${props.aiming ? 'controls-aiming' : ''}`}>
       {nobunagaReady && (
         <button
           className="ink-seal ink-seal-ink ink-seal-live ink-seal-sm"
@@ -1040,7 +1191,7 @@ function Controls(props: {
         </button>
       )}
       <button
-        className="ink-seal ink-seal-vermilion ink-seal-live"
+        className={`ink-seal ink-seal-vermilion ink-seal-live ${spent ? 'ink-seal-suggest' : ''}`}
         onClick={() => session.sendIntent({ t: 'endTurn' })}
       >
         <span className="ink-seal-kanji" aria-hidden="true">終</span>
@@ -1248,9 +1399,14 @@ function Modal(props: { title: string; children: React.ReactNode }) {
 
 // ---------------- log ----------------
 
-function LogPanel(props: { view: PlayerView }) {
+function LogPanel(props: { view: PlayerView; touch: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [open, setOpen] = useState(true)
+  // phones start with the chronicle furled — it crowded the board's top-right
+  const [open, setOpen] = useState(() => !props.touch)
+  // unread count while furled, so nothing feels missed
+  const seenN = useRef(props.view.log.length)
+  if (open) seenN.current = props.view.log.length
+  const unread = Math.max(0, props.view.log.length - seenN.current)
   useEffect(() => {
     ref.current?.scrollTo({ top: ref.current.scrollHeight })
   }, [props.view.log.length])
@@ -1259,6 +1415,7 @@ function LogPanel(props: { view: PlayerView }) {
       <button className="log-toggle" onClick={() => setOpen(!open)}>
         <span className="log-seal" aria-hidden="true">記</span>
         {open ? '▾ chronicle' : '▸ chronicle'}
+        {!open && unread > 0 && <span className="log-unread">{unread > 99 ? '99+' : unread}</span>}
       </button>
       {open && (
         <div className="log-entries" ref={ref}>

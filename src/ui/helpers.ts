@@ -150,6 +150,22 @@ export function flightFromLog(
   return null
 }
 
+/** An attack's two ends, parsed from a chronicle line — drives the directed
+ * attacker→victim slash so attribution is instant even at a 7-player ring. */
+export function strikeFromLog(
+  text: string,
+  players: readonly { seat: number; name: string }[],
+): { from: number; to: number } | null {
+  if (text.startsWith('—')) return null
+  const byLen = [...players].sort((a, b) => b.name.length - a.name.length)
+  const actor = byLen.find((p) => text.startsWith(p.name + ' attacks '))
+  if (!actor) return null
+  const rest = text.slice(actor.name.length + ' attacks '.length)
+  const victim = byLen.find((p) => rest.startsWith(p.name + ' '))
+  if (!victim || victim.seat === actor.seat) return null
+  return { from: actor.seat, to: victim.seat }
+}
+
 /** Distance between two seats, skipping harmless intermediates (mirrors the engine). */
 export function viewDistance(view: PlayerView, from: number, to: number): number {
   const n = view.playerCount

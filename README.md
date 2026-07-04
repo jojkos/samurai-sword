@@ -2,7 +2,8 @@
 
 A faithful browser implementation of the card game **Samurai Sword** (dV Giochi's
 BANG!-system game set in feudal Japan) — online multiplayer for 3–7 players, with
-**no backend at all**.
+**no backend at all**. Missing warriors? The host can seat any number of **bots**
+in the lobby, so it plays great with 1 or 2 humans too.
 
 > Card artwork is original (ink & parchment SVG/CSS); the card roster, stats and rules
 > follow the official rulebook. Samurai Sword is © daVinci Editrice S.r.l. — this is a
@@ -48,6 +49,8 @@ src/engine/   pure, deterministic rules engine (no UI/network) + vitest suite
   cards.ts    the full 90-card roster, characters, roles  ← deck counts live here
   game.ts     state machine: turns, combat, prompts, scoring
   view.ts     per-player redaction
+  bot.ts      the bot brain — a heuristic policy over the same redacted view
+              a human gets (bots cannot cheat); host drives them with a delay
 src/net/      PeerJS host/guest sessions, reconnect, localStorage persistence
 src/ui/       React screens: home, lobby, the 2.5D table, prompts, scoring reveal
 ```

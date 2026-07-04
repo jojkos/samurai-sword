@@ -574,6 +574,64 @@ body {
 }
 .seat-targetable:hover { transform: translate(-50%, -52%) scale(1.04); }
 
+/* ---------- the targeting arrow — card → pointer, ink-rope style ---------- */
+.target-arrow {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 38; /* over the table, under prompts/modals (50+) */
+  pointer-events: none;
+  opacity: 0; /* revealed on the first pointermove */
+  transition: opacity 0.15s ease;
+}
+.target-arrow-stroke {
+  stroke: rgba(230, 200, 130, 0.85);
+  stroke-width: 5;
+  stroke-linecap: round;
+  /* beads of ink along the rope — reads as motion without animating anything */
+  stroke-dasharray: 1 14;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+}
+.target-arrow-tip {
+  fill: rgba(230, 200, 130, 0.9);
+  stroke: rgba(12, 7, 4, 0.6);
+  stroke-width: 2;
+}
+/* over a legal target the rope turns vermilion and thickens — commit signal */
+.target-arrow-hot .target-arrow-stroke { stroke: var(--vermilion); stroke-width: 7; stroke-dasharray: 2 12; }
+.target-arrow-hot .target-arrow-tip { fill: var(--vermilion); }
+
+/* ---------- the attack strike — a slash travelling attacker → victim ---------- */
+.strike-layer { position: absolute; inset: 0; pointer-events: none; z-index: 29; }
+.strike {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  will-change: transform, opacity;
+  /* waits for the showcase card to land (≈450ms), then cuts across the table */
+  animation: strike-fly 460ms cubic-bezier(0.5, 0, 0.9, 0.6) 480ms both;
+}
+.strike-blade {
+  display: block;
+  width: 74px;
+  height: 7px;
+  border-radius: 4px;
+  transform: rotate(var(--angle, 0deg));
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(243, 220, 138, 0.25) 30%,
+    #f6edd6 62%,
+    var(--vermilion) 100%);
+  box-shadow: 0 0 14px rgba(195, 40, 47, 0.55);
+}
+@keyframes strike-fly {
+  0% { opacity: 0; transform: translate(-50%, -50%) translate(var(--fx, 0px), var(--fy, 0px)) scale(0.4); }
+  18% { opacity: 1; transform: translate(-50%, -50%) translate(var(--fx, 0px), var(--fy, 0px)) scale(1); }
+  82% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) translate(var(--tx, 0px), var(--ty, 0px)) scale(1.05); }
+}
+
 .seat-harmless { filter: saturate(0.25) brightness(0.88) contrast(0.95); }
 
 /* while aiming a card: seats you cannot reach fade out of consideration */
@@ -881,7 +939,9 @@ body {
 }
 .stat-icon { width: 11px; height: 11px; }
 .card-stat-damage {
-  bottom: 24px; right: 8px;
+  /* stacked under the reach chip at the TOP of the card: the fan tucks the
+     lower third of hand cards off-screen, and damage must read from the fan */
+  top: 47px; left: 9px;
   gap: 1px;
   color: #8f1d2c;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
@@ -889,7 +949,7 @@ body {
 .stat-drop { width: 10px; height: 14px; }
 .card-mini .card-stat-reach { top: 2px; left: 2px; font-size: 0.56rem; padding: 0 4px 0 3px; gap: 1px; }
 .card-mini .stat-icon { width: 7px; height: 7px; }
-.card-mini .card-stat-damage { bottom: 2px; right: 2px; }
+.card-mini .card-stat-damage { top: auto; left: auto; bottom: 2px; right: 2px; }
 .card-mini .stat-drop { width: 6px; height: 9px; }
 
 .card-corner-hint {
@@ -1216,12 +1276,33 @@ body {
   animation: turn-banner 1.6s var(--ease-out) forwards;
 }
 .turn-banner-kanji { font-family: var(--font-kanji); margin-left: 0.45em; }
+/* stamped, not faded: the banner slams in oversized like a hanko strike */
 @keyframes turn-banner {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-  15% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
-  25% { transform: translate(-50%, -50%) scale(1); }
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(0.94); }
+  18% { transform: translate(-50%, -50%) scale(1.02); }
+  26% { transform: translate(-50%, -50%) scale(1); }
   72% { opacity: 1; }
   100% { opacity: 0; transform: translate(-50%, -62%); }
+}
+/* the ink bloom behind the stamp — scales in once, transform/opacity only */
+.turn-banner::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 340px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(243, 193, 75, 0.28), transparent 70%);
+  z-index: -1;
+  animation: banner-bloom 1.6s var(--ease-out) forwards;
+}
+@keyframes banner-bloom {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  14% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  70% { opacity: 0.8; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); }
 }
 
 /* newly lost tokens flash so the loss is unmissable */
@@ -1229,6 +1310,70 @@ body {
 @keyframes token-lose {
   0% { opacity: 0.1; box-shadow: 0 0 16px 5px rgba(195, 40, 47, 0.85); }
 }
+
+/* ---------- guidance: feedback beside the hand, not a far-away toast ---------- */
+.aim-hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(196px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 36;
+  max-width: min(92vw, 460px);
+  padding: 5px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(243, 220, 138, 0.4);
+  background: rgba(12, 7, 4, 0.82);
+  color: var(--gold-bright);
+  font-size: 0.9rem;
+  text-align: center;
+  pointer-events: none;
+  animation: aim-hint-in 0.25s var(--ease-out) backwards;
+}
+.aim-hint-blocked {
+  border-color: rgba(195, 40, 47, 0.55);
+  color: #f2b8ac;
+}
+@keyframes aim-hint-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+}
+
+/* while aiming, End turn steps back so the table is the only call to action */
+.controls-aiming { opacity: 0.35; pointer-events: none; }
+
+/* nothing left to play → the End turn seal breathes an invitation */
+.ink-seal-suggest { animation: seal-suggest 1.6s ease-in-out infinite; }
+@keyframes seal-suggest {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* unread count on the furled chronicle */
+.log-unread {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--vermilion);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+/* the ceremony's one-line token lesson */
+.ceremony-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-style: italic;
+  opacity: 0.85;
+}
+.ceremony-legend .token, .info-meta .token { display: inline-block; vertical-align: -1px; }
 
 /* cards landing on piles / into play pop briefly */
 .pile > .card,
@@ -1986,6 +2131,14 @@ body {
 }
 
 /* ================= accessibility & small screens ================= */
+
+/* Returning players get the finished painting instantly: the ~2.2s home
+   entrance choreography collapses (delays → 0) once the intro has been seen.
+   Durations are kept, so strokes still draw — just all at once, immediately. */
+.ink-swift .ink-home *, .ink-swift .ink-home *::before, .ink-swift .ink-home *::after,
+.ink-swift .ink-scene *, .ink-swift .ink-scene *::before, .ink-swift .ink-scene *::after {
+  animation-delay: 0s !important;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

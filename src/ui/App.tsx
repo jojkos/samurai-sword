@@ -35,6 +35,14 @@ export function App() {
   const copyTimer = useRef<number | null>(null)
   // one-shot dusk veil that falls when the daylight lobby gives way to the night duel
   const [duskFall, setDuskFall] = useState(false)
+  // the home painting choreographs itself in over ~2.2s — charming once, an
+  // obstacle every visit after. Returning players get the finished painting.
+  const [seenIntro] = useState(() => localStorage.getItem('samurai-sword-intro') === '1')
+  useEffect(() => {
+    if (seenIntro) return
+    const t = setTimeout(() => localStorage.setItem('samurai-sword-intro', '1'), 3500)
+    return () => clearTimeout(t)
+  }, [seenIntro])
   // inline field affordance mirroring the error toast (name / room code)
   const [fieldError, setFieldError] = useState<{ field: 'name' | 'code'; msg: string } | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -267,7 +275,7 @@ export function App() {
   const inkWorld = screen.s === 'home' || screen.s === 'connecting' || screen.s === 'lobby'
 
   return (
-    <div className={inkWorld ? 'app app-ink' : 'app'}>
+    <div className={`app ${inkWorld ? 'app-ink' : ''} ${inkWorld && seenIntro ? 'ink-swift' : ''}`}>
       <SharedFilterDefs />
       {inkWorld ? <InkScene /> : <SceneBackdrop />}
       {duskFall && <div className="ink-dusk" aria-hidden="true" />}
