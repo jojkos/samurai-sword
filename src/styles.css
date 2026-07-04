@@ -482,30 +482,64 @@ body {
   transform: translate(-50%, -50%) scale(1.07);
   z-index: 9; /* the active warrior lifts above neighbours it now overlaps */
   box-shadow:
-    0 0 0 3px rgba(243, 220, 138, 0.9),
-    0 0 40px rgba(243, 193, 75, 0.5),
+    0 0 0 3px rgba(243, 220, 138, 0.55),
+    0 0 30px rgba(243, 193, 75, 0.35),
     inset 0 0 0 1px rgba(201, 155, 46, 0.4),
     var(--shadow-contact), var(--shadow-soft);
-  animation: turn-glow 1.8s ease-in-out infinite;
 }
-/* the spotlight brightens the tatami under the active seat and lets the rest
-   fall into shadow — a soft vignette that pulls the eye to whose turn it is.
-   @property makes the centre glide between seats instead of snapping. */
-@property --spot-x { syntax: '<length-percentage>'; inherits: false; initial-value: 50%; }
-@property --spot-y { syntax: '<length-percentage>'; inherits: false; initial-value: 50%; }
-.table-spotlight {
+/* the breathing part of the glow lives on .seat-pulse: the shadow is painted
+   ONCE and only the layer's opacity animates — compositor work, no repaints */
+.seat-pulse {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
+  opacity: 0;
+}
+.seat-turn .seat-pulse {
+  box-shadow: 0 0 0 3px rgba(243, 220, 138, 0.5), 0 0 44px rgba(243, 193, 75, 0.55);
+  animation: seat-pulse-breathe 1.8s ease-in-out infinite;
+}
+.seat-targetable .seat-pulse {
+  box-shadow: 0 0 28px rgba(195, 40, 47, 0.85), 0 0 6px rgba(195, 40, 47, 0.6);
+  animation: seat-pulse-breathe 1.1s ease-in-out infinite;
+}
+@keyframes seat-pulse-breathe {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+/* the spotlight brightens the tatami under the active seat and lets the rest
+   fall into shadow — a soft vignette that pulls the eye to whose turn it is.
+   The light pool is an OVERSIZED static gradient slid around with transform,
+   so the glide between seats is compositor-only (interpolating the gradient
+   centre via @property repainted the whole table every frame for 0.55s). */
+.table-spotlight {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
   z-index: 4; /* over the tatami + piles, under the seats (5) */
-  background: radial-gradient(circle at var(--spot-x, 50%) var(--spot-y, 50%),
-    rgba(243, 193, 75, 0.12) 0%,
-    transparent 24%,
-    rgba(6, 3, 2, 0.36) 68%);
   opacity: 0;
   animation: spotlight-in 0.6s var(--ease-out) forwards;
-  transition: opacity 0.4s ease, --spot-x 0.55s var(--ease-out), --spot-y 0.55s var(--ease-out);
+  transition: opacity 0.4s ease;
+}
+.table-spotlight::before {
+  content: '';
+  position: absolute;
+  left: -50%;
+  top: -50%;
+  width: 200%;
+  height: 200%;
+  /* painted once: same visual radii as a table-sized farthest-corner gradient */
+  background: radial-gradient(circle at 50% 50%,
+    rgba(243, 193, 75, 0.12) 0%,
+    transparent 12%,
+    rgba(6, 3, 2, 0.36) 34%);
+  /* percentages are of THIS (2×) box, so the seat offset from centre halves */
+  transform: translate(calc((var(--spot-x, 50%) - 50%) / 2), calc((var(--spot-y, 50%) - 50%) / 2));
+  transition: transform 0.55s var(--ease-out);
+  will-change: transform;
 }
 @keyframes spotlight-in { to { opacity: 1; } }
 /* while it is someone's turn (and you are not mid-aim), the inactive warriors
@@ -533,20 +567,12 @@ body {
 @keyframes marker-bob {
   50% { transform: translateX(-50%) translateY(-4px); }
 }
-@keyframes turn-glow {
-  50% { box-shadow: 0 0 0 3px rgba(243, 220, 138, 0.5), 0 0 44px rgba(243, 193, 75, 0.6), inset 0 0 0 1px rgba(201, 155, 46, 0.4), var(--shadow-contact), var(--shadow-soft); }
-}
-
 .seat-targetable {
   cursor: pointer;
   outline: 3px solid var(--vermilion);
   outline-offset: 1px;
-  animation: target-glow 1.1s ease-in-out infinite;
 }
 .seat-targetable:hover { transform: translate(-50%, -52%) scale(1.04); }
-@keyframes target-glow {
-  50% { box-shadow: 0 0 28px rgba(195, 40, 47, 0.85), var(--shadow-contact), var(--shadow-soft); }
-}
 
 .seat-harmless { filter: saturate(0.25) brightness(0.88) contrast(0.95); }
 
@@ -1124,7 +1150,6 @@ body {
   border-radius: 14px;
   font-size: 0.95rem;
   letter-spacing: 0.05em;
-  backdrop-filter: blur(3px);
   white-space: nowrap;
 }
 .showcase-attack .showcase-cardwrap { animation: attack-ring 700ms ease-out 300ms; }
@@ -1958,8 +1983,6 @@ body {
   .result-clans { grid-template-columns: 1fr; }
   .result-cta { width: 100%; flex-direction: column; align-items: center; }
   .result-cta .result-seal { width: 100%; min-width: 0; max-width: 340px; }
-  /* perf: phones skip displacement filters on the finale's strokes */
-  .result-slash-stroke, .result-warrior-brush path { filter: none; }
 }
 
 /* ================= accessibility & small screens ================= */
@@ -2060,13 +2083,26 @@ body {
   .showcase-ribbon { font-size: 0.85rem; }
   .ceremony-kanji { font-size: 3.6rem; }
   .seat-role-badge { font-size: 0.52rem; line-height: 1.8; }
+}
 
-  /* perf: phones struggle with per-element blur and displacement filters */
+/* perf: EVERY touch device — portrait or landscape — skips per-element blur
+   and displacement filters. SVG feTurbulence/feDisplacementMap and
+   backdrop-filter are the two biggest fill-rate costs on mobile GPUs, and a
+   width-only gate left landscape phones (641–930px) paying the full price. */
+@media (max-width: 640px), (pointer: coarse) {
   .log-entries, .modal-backdrop, .inspect-backdrop, .ceremony,
   .pile-count, .role-badge, .log-toggle, .sound-toggle, .waiting-banner,
-  .showcase-ribbon { backdrop-filter: none; }
+  .ink-panel { backdrop-filter: none; }
   .card-frame, .card-seal, .card-back-mon, .flight { filter: none; }
+  .ember { filter: none; }
   .ember:nth-child(n + 7) { display: none; }
+  /* turn changes swap seat dimming instantly instead of transitioning filter */
+  .seat { transition: box-shadow 0.25s var(--ease-out), transform 0.25s var(--ease-out); }
+  /* the daylight world's brushed strokes render crisp (no displacement) —
+     the breathing home slash otherwise re-runs its filter chain every frame */
+  .ink-enso-stroke, .ink-slash-stroke, .ink-underline path, .ink-cartouche-stroke,
+  .ink-stalk, .ink-lobby-rule-stroke, .ink-code-frame-stroke, .ink-seat-brush-stroke,
+  .ink-torii-stroke, .result-slash-stroke, .result-warrior-brush path { filter: none; }
 }
 
 /* touch devices: hover doesn't exist — kill sticky lift states and the hover-inspect */
@@ -3080,7 +3116,7 @@ body {
 /* ---------- lobby / connecting — phones ---------- */
 @media (max-width: 640px) {
   .ink-lobby { padding: 1rem 1rem 1.1rem; gap: 0.7rem; max-width: 100%; }
-  .ink-panel { padding: 0.85rem 0.9rem 0.9rem; backdrop-filter: none; }
+  .ink-panel { padding: 0.85rem 0.9rem 0.9rem; }
   /* keep the QR beside the code (not stacked below) so the lobby stays above
      the fold; wrap only on very narrow screens */
   .ink-summons-row { gap: 0.9rem; flex-wrap: wrap; }
@@ -3094,9 +3130,5 @@ body {
   .ink-seat { min-height: 2.5em; }
   .ink-begin { width: 100%; min-width: 0; max-width: 320px; }
   .ink-connecting { padding: 1.6rem 1.1rem; }
-
-  /* perf: phones skip displacement filters here too */
-  .ink-lobby-rule-stroke, .ink-code-frame-stroke, .ink-seat-brush-stroke,
-  .ink-torii-stroke { filter: none; }
   .ink-torii-scene { width: min(240px, 68vw); }
 }

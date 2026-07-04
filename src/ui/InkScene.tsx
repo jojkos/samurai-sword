@@ -28,17 +28,6 @@ const PETALS: Array<[number, number, number, number, number]> = [
 export function InkScene() {
   return (
     <div className="ink-scene" aria-hidden="true">
-      {/* #ink-brush is mounted globally by SharedFilterDefs; #ink-bleed is only
-          used by the daylight painting, so it stays local here */}
-      <svg width="0" height="0" style={{ position: 'absolute' }}>
-        <defs>
-          <filter id="ink-bleed" x="-20%" y="-20%" width="140%" height="140%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.09" numOctaves="2" seed="4" result="n" />
-            <feDisplacementMap in="SourceGraphic" in2="n" scale="12" xChannelSelector="R" yChannelSelector="G" />
-          </filter>
-        </defs>
-      </svg>
-
       {/* washi paper — visible instantly, the canvas everything paints onto */}
       <div className="ink-paper" />
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { CARD_DEFS, CHARACTERS } from '../engine/cards'
 import type { Card, Pending, PlayerView, PublicPlayer } from '../engine/types'
 import type { Session } from '../net/session'
@@ -476,8 +476,9 @@ function useNarrowViewport() {
 
 // ---------------- ambient embers ----------------
 
-/** Drifting lantern embers. Deterministic per index (SSR-safe). */
-function Embers() {
+/** Drifting lantern embers. Deterministic per index (SSR-safe).
+ * memo: propless ambience — never rebuild its 12 spans on view updates. */
+const Embers = memo(function Embers() {
   const embers = Array.from({ length: 12 }, (_, i) => {
     const h = (i * 2654435761) % 1000
     return {
@@ -503,7 +504,7 @@ function Embers() {
       ))}
     </div>
   )
-}
+})
 
 // ---------------- seat ----------------
 
@@ -534,6 +535,10 @@ function Seat(props: {
   ].join(' ')
   return (
     <div className={cls} style={props.style} onClick={props.onClick}>
+      {/* the breathing glow is its own layer: a static box-shadow whose OPACITY
+          pulses (compositor-only), instead of animating box-shadow (per-frame
+          repaints for the whole turn — jank on phones) */}
+      {(props.isTurn || props.targetable) && <i className="seat-pulse" aria-hidden="true" />}
       {props.hit > 0 && <div key={props.hit} className="seat-impact" />}
       {props.difficulty !== null && <div className="seat-difficulty">{props.difficulty}</div>}
       <div className="seat-name">{p.name}</div>
