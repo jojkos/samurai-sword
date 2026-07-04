@@ -1340,8 +1340,9 @@ body {
 /* while aiming, End turn steps back so the table is the only call to action */
 .controls-aiming { opacity: 0.35; pointer-events: none; }
 
-/* nothing left to play → the End turn seal breathes an invitation */
-.ink-seal-suggest { animation: seal-suggest 1.6s ease-in-out infinite; }
+/* nothing left to play → the End turn seal breathes an invitation.
+   Doubled class beats .ink-seal-live's later `animation: none` reset. */
+.ink-seal-suggest.ink-seal-suggest { animation: seal-suggest 1.6s ease-in-out infinite; }
 @keyframes seal-suggest {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
@@ -2217,6 +2218,8 @@ body {
   .controls { right: 8px; bottom: calc(140px + env(safe-area-inset-bottom)); gap: 6px; }
   .controls .ink-seal { min-width: 112px; min-height: 46px; }
   .controls .ink-seal .ink-seal-text { font-size: 0.9rem; }
+  /* the guidance ribbon clears the stacked controls (End turn + Nobunaga) */
+  .aim-hint { bottom: calc(252px + env(safe-area-inset-bottom)); max-width: 94vw; font-size: 0.82rem; }
   .waiting-banner { top: 46px; font-size: 0.82rem; max-width: 90vw; }
 
   .modal { padding: 1.2rem 1rem 1.1rem; max-width: 94vw; max-height: 84vh; }
