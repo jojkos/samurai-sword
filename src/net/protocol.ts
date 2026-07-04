@@ -5,6 +5,7 @@ export interface LobbyPlayer {
   name: string
   connected: boolean
   isHost: boolean
+  isBot?: boolean
 }
 
 export type GuestMsg =

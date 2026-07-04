@@ -1,4 +1,6 @@
 import Peer, { DataConnection } from 'peerjs'
+import { botIntent, pickBotName } from '../engine/bot'
+import { cardDef } from '../engine/cards'
 import { applyIntent, createGame, RuleError } from '../engine/game'
 import { viewFor } from '../engine/view'
 import type { GameState, Intent, PlayerView } from '../engine/types'
@@ -23,6 +25,9 @@ export interface Session {
   startGame?(): void
   /** host only: deal a fresh game with the same players */
   playAgain?(): void
+  /** host only, pre-game: seat a bot / dismiss a bot */
+  addBot?(): void
+  removeBot?(seat: number): void
   close(): void
 }
 
@@ -39,6 +44,43 @@ function ss(): Storage | null {
     return sessionStorage
   } catch {
     return null
+  }
+}
+
+// ---------------- bots ----------------
+
+/** Bot seats are ordinary roster entries whose token carries this prefix. */
+const BOT_TOKEN_PREFIX = 'bot:'
+
+export function isBotToken(token: string): boolean {
+  return token.startsWith(BOT_TOKEN_PREFIX)
+}
+
+/** Whoever the engine is waiting on right now (prompt respondent, else turn player). */
+function actingSeat(state: GameState): number {
+  if (state.pending) {
+    return state.pending.type === 'forced' ? state.pending.queue[0] : state.pending.seat
+  }
+  return state.turnSeat
+}
+
+/** An always-legal move, so a bot can never stall the table even if its policy slips. */
+function fallbackIntent(state: GameState, seat: number): Intent {
+  const pending = state.pending
+  if (!pending) return { t: 'endTurn' }
+  switch (pending.type) {
+    case 'parry':
+      return { t: 'respondParry', card: null }
+    case 'forced':
+      return { t: 'respondForced', card: null }
+    case 'bushido': {
+      const w = state.players[seat].hand.find((c) => cardDef(c).type === 'weapon')
+      return w ? { t: 'respondBushido', discardWeapon: w.id } : { t: 'respondBushido', loseHonor: true }
+    }
+    case 'ieyasu':
+      return { t: 'respondIeyasu', fromDiscard: false }
+    case 'discard':
+      return { t: 'respondDiscard', cards: state.players[seat].hand.slice(0, pending.count).map((c) => c.id) }
   }
 }
 
@@ -95,6 +137,10 @@ export class HostSession implements Session {
   private closed = false
   /** token → pending pre-game removal timer */
   private evictions = new Map<string, ReturnType<typeof setTimeout>>()
+  /** the one live "a bot is thinking" timer (only one seat can be to act) */
+  private botTimer: ReturnType<typeof setTimeout> | null = null
+  /** how long a bot pretends to think, ms (tests shrink this) */
+  botDelay: [number, number] = [650, 1500]
 
   private idRetries = 0
 
@@ -107,6 +153,8 @@ export class HostSession implements Session {
     this.conns = this.roster.tokens.map(() => null)
     this.peer = this.createPeer()
     this.save()
+    // a resumed game may already be waiting on a bot — pick the duel back up
+    this.scheduleBots()
   }
 
   private createPeer(): Peer {
@@ -262,10 +310,69 @@ export class HostSession implements Session {
       this.state = applyIntent(this.state!, seat, intent)
       this.save()
       this.pushViews()
+      this.scheduleBots()
     } catch (e) {
       if (e instanceof RuleError) reportError(e.message)
       else throw e
     }
+  }
+
+  // ----- bots -----
+
+  addBot() {
+    if (this.state) return // seats are fixed once the duel begins
+    if (this.roster.tokens.length >= 7) {
+      this.events.onError('The room is full (7 players max).')
+      return
+    }
+    this.roster.tokens.push(BOT_TOKEN_PREFIX + newToken())
+    this.roster.names.push(pickBotName(this.roster.names))
+    this.conns.push(null)
+    this.save()
+    this.pushLobby()
+  }
+
+  removeBot(seat: number) {
+    if (this.state) return
+    if (!isBotToken(this.roster.tokens[seat] ?? '')) return
+    this.dropSeat(seat)
+    this.pushLobby()
+  }
+
+  /** If the engine is waiting on a bot seat, let it "think" then act. */
+  private scheduleBots() {
+    if (this.botTimer) {
+      clearTimeout(this.botTimer)
+      this.botTimer = null
+    }
+    const state = this.state
+    if (this.closed || !state || state.phase === 'ended') return
+    const seat = actingSeat(state)
+    if (!isBotToken(this.roster.tokens[seat])) return
+    const [lo, hi] = this.botDelay
+    this.botTimer = setTimeout(() => {
+      this.botTimer = null
+      this.actBot()
+    }, lo + Math.random() * (hi - lo))
+  }
+
+  private actBot() {
+    const state = this.state
+    if (this.closed || !state || state.phase === 'ended') return
+    const seat = actingSeat(state)
+    if (!isBotToken(this.roster.tokens[seat])) return
+    let next: GameState
+    try {
+      next = applyIntent(state, seat, botIntent(viewFor(state, seat)))
+    } catch {
+      // the policy slipped (illegal move or a bug) — make the always-legal
+      // move instead so a bot can never stall the table
+      next = applyIntent(state, seat, fallbackIntent(state, seat))
+    }
+    this.state = next
+    this.save()
+    this.pushViews()
+    this.scheduleBots()
   }
 
   playAgain() {
@@ -277,16 +384,17 @@ export class HostSession implements Session {
   startGame() {
     if (this.state) return
     // ghosts — joined then vanished pre-game — must not be dealt into the game
+    // (bot seats have no connection by design and always stay)
     let dropped = false
     for (let seat = this.roster.tokens.length - 1; seat > 0; seat--) {
-      if (!this.conns[seat]) {
+      if (!this.conns[seat] && !isBotToken(this.roster.tokens[seat])) {
         this.dropSeat(seat)
         dropped = true
       }
     }
     if (dropped) this.pushLobby()
     if (this.roster.names.length < 3) {
-      this.events.onError('Samurai Sword needs at least 3 players (connected).')
+      this.events.onError('Samurai Sword needs at least 3 players — add bots to fill the seats.')
       return
     }
     this.state = createGame({
@@ -295,15 +403,20 @@ export class HostSession implements Session {
     })
     this.save()
     this.pushViews()
+    this.scheduleBots()
   }
 
   private lobbyPlayers(): LobbyPlayer[] {
-    return this.roster.names.map((name, seat) => ({
-      seat,
-      name,
-      isHost: seat === 0,
-      connected: seat === 0 || this.conns[seat] != null,
-    }))
+    return this.roster.names.map((name, seat) => {
+      const isBot = isBotToken(this.roster.tokens[seat])
+      return {
+        seat,
+        name,
+        isHost: seat === 0,
+        isBot,
+        connected: seat === 0 || isBot || this.conns[seat] != null,
+      }
+    })
   }
 
   private pushLobby() {
@@ -332,6 +445,8 @@ export class HostSession implements Session {
 
   close() {
     this.closed = true
+    if (this.botTimer) clearTimeout(this.botTimer)
+    this.botTimer = null
     this.evictions.forEach((t) => clearTimeout(t))
     this.evictions.clear()
     // tell everyone right away instead of letting them time out

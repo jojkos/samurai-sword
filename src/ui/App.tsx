@@ -578,8 +578,19 @@ export function App() {
                 >
                   <span className="ink-seat-name">{p.name}</span>
                   {p.isHost && <span className="ink-seat-tag ink-seat-tag-host">host</span>}
+                  {p.isBot && <span className="ink-seat-tag ink-seat-tag-bot">bot</span>}
                   {p.seat === screen.seat && <span className="ink-seat-tag ink-seat-tag-you">you</span>}
                   {!p.connected && <span className="ink-seat-offline-tag">offline</span>}
+                  {p.isBot && session.removeBot && (
+                    <button
+                      className="ink-bot-dismiss"
+                      onClick={() => session.removeBot!(p.seat)}
+                      title={`Dismiss ${p.name}`}
+                      aria-label={`Dismiss bot ${p.name}`}
+                    >
+                      ×
+                    </button>
+                  )}
                   {/* the brush stroke that writes the warrior onto the roster */}
                   <svg className="ink-seat-brush" viewBox="0 0 300 10" preserveAspectRatio="none" aria-hidden="true">
                     <path
@@ -598,6 +609,13 @@ export function App() {
                     awaiting {7 - screen.players.length} more warrior
                     {7 - screen.players.length === 1 ? '' : 's'}…
                   </span>
+                  {/* the host may fill empty seats with rōnin-for-hire */}
+                  {session.addBot && (
+                    <button className="ink-addbot" onClick={() => session.addBot!()}>
+                      <span className="ink-addbot-kanji" aria-hidden="true">傀</span>
+                      add a bot
+                    </button>
+                  )}
                 </li>
               )}
             </ul>
@@ -615,8 +633,8 @@ export function App() {
               </button>
               {screen.players.length < 3 ? (
                 <p className="ink-begin-hint pulse">
-                  A duel needs at least 3 warriors — awaiting{' '}
-                  {3 - screen.players.length === 1 ? 'one more' : `${3 - screen.players.length} more`}…
+                  A duel needs at least 3 warriors — invite friends or add{' '}
+                  {3 - screen.players.length === 1 ? 'a bot' : 'bots'}…
                 </p>
               ) : (
                 <p className="ink-begin-hint ink-begin-ready">

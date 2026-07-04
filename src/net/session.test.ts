@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('peerjs', () => import('./fakePeer'))
 
 import Peer, { FakeConn } from './fakePeer'
+import { createGame } from '../engine/game'
 import { GuestSession, HostSession } from './session'
 import type { HostSave, SessionEvents } from './session'
 import type { HostMsg, LobbyPlayer } from './protocol'
@@ -174,6 +175,84 @@ describe('room shutdown & resume', () => {
     expect(ev.lastLobby()[1].connected).toBe(false)
     join(peer, 'RenamedAya', 't-aya')
     expect(ev.lastLobby()[1]).toMatchObject({ name: 'Aya', connected: true })
+  })
+})
+
+describe('bots', () => {
+  it('the host can seat and dismiss bots in the lobby', () => {
+    const { host, ev } = makeHost()
+    host.addBot()
+    host.addBot()
+    expect(ev.lastLobby()).toHaveLength(3)
+    expect(ev.lastLobby()[1]).toMatchObject({ isBot: true, connected: true })
+    host.removeBot(1)
+    expect(ev.lastLobby()).toHaveLength(2)
+    expect(ev.lastLobby()[1].isBot).toBe(true)
+  })
+
+  it('removeBot never evicts a human seat', () => {
+    const { host, peer, ev } = makeHost()
+    join(peer, 'Aya', 't-aya')
+    host.removeBot(1)
+    expect(ev.lastLobby().map((p) => p.name)).toEqual(['Hoster', 'Aya'])
+  })
+
+  it('bots fill the 3-player minimum and survive the ghost sweep at start', () => {
+    const { host, peer, ev } = makeHost()
+    host.addBot()
+    host.addBot()
+    const ghost = join(peer, 'Ghost', 't-ghost')
+    ghost.emit('close')
+    host.startGame()
+    const view = ev.views[ev.views.length - 1]
+    expect(view.playerCount).toBe(3) // host + 2 bots, ghost dropped
+  })
+
+  it('one human + two bots: the bots play the whole duel to its end', () => {
+    const { host, ev } = makeHost()
+    host.botDelay = [0, 0]
+    host.addBot()
+    host.addBot()
+    host.startGame()
+    const lastView = () => ev.views[ev.views.length - 1]
+    for (let step = 0; step < 6000 && !lastView().result; step++) {
+      const v = lastView()
+      if (v.prompt) {
+        // the host answers any prompt with the safe minimal response
+        switch (v.prompt.type) {
+          case 'parry': host.sendIntent({ t: 'respondParry', card: null }); break
+          case 'forced': host.sendIntent({ t: 'respondForced', card: null }); break
+          case 'bushido': {
+            const w = v.you.hand.find((c) => ['bokken', 'kiseru', 'bo', 'shuriken', 'kusarigama', 'nagayari', 'kanabo', 'naginata', 'daikyu', 'tanegashima', 'wakizashi', 'katana', 'nodachi'].includes(c.kind))
+            host.sendIntent(w ? { t: 'respondBushido', discardWeapon: w.id } : { t: 'respondBushido', loseHonor: true })
+            break
+          }
+          case 'ieyasu': host.sendIntent({ t: 'respondIeyasu', fromDiscard: false }); break
+          case 'discard': host.sendIntent({ t: 'respondDiscard', cards: v.you.hand.slice(0, v.prompt.count).map((c) => c.id) }); break
+        }
+      } else if (v.turnSeat === 0) {
+        host.sendIntent({ t: 'endTurn' })
+      } else {
+        vi.advanceTimersByTime(5) // a bot is "thinking"
+      }
+    }
+    expect(lastView().result).not.toBeNull()
+  }, 30_000)
+
+  it('a resumed game picks the duel back up when a bot is to act', () => {
+    const save: HostSave = {
+      code: 'ABCD',
+      roster: { tokens: ['host', 'bot:a', 'bot:b'], names: ['Hoster', 'Kaze 風', 'Yama 山'] },
+      state: createGame({ names: ['Hoster', 'Kaze 風', 'Yama 山'], seed: 7 }),
+      savedAt: Date.now(),
+    }
+    const { host, ev } = makeHost(save)
+    // if the save happened to capture the human's turn, pass it to a bot
+    if (ev.views[ev.views.length - 1].turnSeat === 0) host.sendIntent({ t: 'endTurn' })
+    const before = ev.views.length
+    vi.advanceTimersByTime(2000) // beyond the default thinking delay
+    expect(ev.views.length).toBeGreaterThan(before)
+    host.close()
   })
 })
 
