@@ -30,6 +30,40 @@ export function App() {
     () => new URLSearchParams(location.search).get('join')?.toUpperCase() ?? '',
   )
   const [soundOn, setSoundOn] = useState(() => sound.isEnabled())
+  // fullscreen: hides the browser chrome for a proper table view. The API is
+  // absent on iPhone Safari (only the installed PWA gets fullscreen there), so
+  // the button hides itself where it can't work.
+  const fsSupported =
+    typeof document !== 'undefined' &&
+    (document.fullscreenEnabled ||
+      // @ts-expect-error vendor-prefixed
+      document.webkitFullscreenEnabled)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  useEffect(() => {
+    const onFs = () =>
+      setIsFullscreen(
+        // @ts-expect-error vendor-prefixed
+        !!(document.fullscreenElement || document.webkitFullscreenElement),
+      )
+    document.addEventListener('fullscreenchange', onFs)
+    document.addEventListener('webkitfullscreenchange', onFs)
+    return () => {
+      document.removeEventListener('fullscreenchange', onFs)
+      document.removeEventListener('webkitfullscreenchange', onFs)
+    }
+  }, [])
+  function toggleFullscreen() {
+    const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void }
+    const doc = document as Document & {
+      webkitExitFullscreen?: () => void
+      webkitFullscreenElement?: Element
+    }
+    const active = document.fullscreenElement || doc.webkitFullscreenElement
+    try {
+      if (!active) (el.requestFullscreen ?? el.webkitRequestFullscreen)?.call(el)
+      else (document.exitFullscreen ?? doc.webkitExitFullscreen)?.call(document)
+    } catch { /* denied / unsupported — non-fatal */ }
+  }
   // transient "copied" confirmation on the lobby's copy-link button
   const [copied, setCopied] = useState(false)
   const copyTimer = useRef<number | null>(null)
@@ -301,6 +335,24 @@ export function App() {
           )}
         </svg>
       </button>
+      {fsSupported && (
+        <button
+          className="sound-toggle fs-toggle"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+        >
+          <svg viewBox="0 0 24 24" className="fs-icon" aria-hidden="true">
+            {isFullscreen ? (
+              // inward arrows — collapse
+              <path d="M9 4 V9 H4 M15 4 V9 H20 M9 20 V15 H4 M15 20 V15 H20" />
+            ) : (
+              // corner brackets — expand
+              <path d="M4 9 V4 H9 M20 9 V4 H15 M4 15 V20 H9 M20 15 V20 H15" />
+            )}
+          </svg>
+        </button>
+      )}
       {error && <div className="toast toast-error">{error}</div>}
 
       {dead && (

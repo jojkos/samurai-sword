@@ -589,9 +589,12 @@ function StrikeLayer(props: {
 }) {
   const { view, positions, reduced } = props
   const rootRef = useRef<HTMLDivElement>(null)
-  const [strikes, setStrikes] = useState<
-    { key: number; fx: number; fy: number; tx: number; ty: number; angle: number }[]
-  >([])
+  interface Slash {
+    key: number
+    w: number; h: number
+    ax: number; ay: number; bx: number; by: number; cx: number; cy: number
+  }
+  const [strikes, setStrikes] = useState<Slash[]>([])
   const keyRef = useRef(0)
   const seenLen = useRef(view.log.length)
   useEffect(() => {
@@ -608,44 +611,48 @@ function StrikeLayer(props: {
     const table = rootRef.current?.parentElement
     const w = table?.clientWidth ?? 0
     const h = table?.clientHeight ?? 0
-    const fresh: typeof strikes = []
+    const fresh: Slash[] = []
     for (let i = seenLen.current; i < view.log.length; i++) {
       const ev = strikeFromLog(view.log[i].text, view.players)
       if (!ev || !w || !h) continue
-      const fx = ((positions[ev.from].left - 50) / 100) * w
-      const fy = ((positions[ev.from].top - 46) / 100) * h
-      const tx = ((positions[ev.to].left - 50) / 100) * w
-      const ty = ((positions[ev.to].top - 46) / 100) * h
-      fresh.push({
-        key: ++keyRef.current,
-        fx, fy, tx, ty,
-        angle: (Math.atan2(ty - fy, tx - fx) * 180) / Math.PI,
-      })
+      // absolute seat centres in the layer's own pixel space
+      const ax = (positions[ev.from].left / 100) * w
+      const ay = (positions[ev.from].top / 100) * h
+      const bx = (positions[ev.to].left / 100) * w
+      const by = (positions[ev.to].top / 100) * h
+      // bow the stroke sideways so it arcs like a real cut, not a ruler line
+      const dx = bx - ax, dy = by - ay
+      const len = Math.hypot(dx, dy) || 1
+      const bow = Math.min(46, len * 0.13)
+      const cx = (ax + bx) / 2 + (-dy / len) * bow
+      const cy = (ay + by) / 2 + (dx / len) * bow
+      fresh.push({ key: ++keyRef.current, w, h, ax, ay, bx, by, cx, cy })
     }
     seenLen.current = view.log.length
     if (fresh.length) {
       setStrikes((s) => [...s, ...fresh].slice(-6))
-      setTimeout(() => setStrikes((s) => s.filter((x) => !fresh.includes(x))), 1400)
+      setTimeout(() => setStrikes((s) => s.filter((x) => !fresh.includes(x))), 1700)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.log])
   return (
     <div className="strike-layer" ref={rootRef} aria-hidden="true">
-      {strikes.map((s) => (
-        <div
-          key={s.key}
-          className="strike"
-          style={{
-            ['--fx' as string]: `${s.fx}px`,
-            ['--fy' as string]: `${s.fy}px`,
-            ['--tx' as string]: `${s.tx}px`,
-            ['--ty' as string]: `${s.ty}px`,
-            ['--angle' as string]: `${s.angle}deg`,
-          }}
-        >
-          <span className="strike-blade" />
-        </div>
-      ))}
+      {strikes.map((s) => {
+        const d = `M ${s.ax} ${s.ay} Q ${s.cx} ${s.cy} ${s.bx} ${s.by}`
+        return (
+          <svg
+            key={s.key}
+            className="strike"
+            viewBox={`0 0 ${s.w} ${s.h}`}
+            preserveAspectRatio="none"
+          >
+            {/* the ink body of the cut — tapered, brushed, drawn A → B */}
+            <path className="strike-ink" d={d} pathLength={1} fill="none" />
+            {/* the steel glint riding just ahead of the ink */}
+            <path className="strike-glint" d={d} pathLength={1} fill="none" />
+          </svg>
+        )
+      })}
     </div>
   )
 }
@@ -1120,6 +1127,34 @@ function Hand(props: {
 }) {
   const { view } = props
   const n = view.you.hand.length
+  // the fan must fit the viewport at ANY hand size: measure the card + the
+  // available width, then overlap cards harder as the hand grows and, only if
+  // even max overlap won't fit, scale the whole fan down. Keeps a big hand on
+  // one row on a portrait phone instead of spilling off both edges.
+  const handRef = useRef<HTMLDivElement>(null)
+  const [fan, setFan] = useState({ m: -10, scale: 1 })
+  useEffect(() => {
+    const el = handRef.current
+    if (!el) return
+    const compute = () => {
+      const card = el.querySelector('.card') as HTMLElement | null
+      const cw = card?.offsetWidth ?? 100
+      // leave a side gutter on phones so the outer cards clear the corner
+      // controls (mute / fullscreen bottom-left, End turn bottom-right)
+      const gutter = window.innerWidth < 560 ? 52 : 8
+      const avail = Math.min(window.innerWidth - gutter * 2, 1100)
+      const NATURAL_M = -10 // relaxed overlap when the hand is small
+      const MIN_VISIBLE = 30 // never hide a card to less than this sliver
+      const maxOverlapM = -(cw - MIN_VISIBLE) / 2
+      let m = Math.min(NATURAL_M, (avail / n - cw) / 2)
+      m = Math.max(m, maxOverlapM)
+      const total = n * (cw + 2 * m)
+      setFan({ m, scale: total > avail ? avail / total : 1 })
+    }
+    compute()
+    window.addEventListener('resize', compute)
+    return () => window.removeEventListener('resize', compute)
+  }, [n])
   // hover-inspect: after a short dwell, show an enlarged card + rules text above the fan
   const [inspectId, setInspectId] = useState<number | null>(null)
   const inspectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1134,7 +1169,15 @@ function Hand(props: {
   }
   const inspected = inspectId !== null ? view.you.hand.find((c) => c.id === inspectId) : undefined
   return (
-    <div className="hand" onMouseLeave={endInspect}>
+    <div
+      className="hand"
+      ref={handRef}
+      onMouseLeave={endInspect}
+      style={{
+        ['--slot-m' as string]: `${fan.m}px`,
+        ['--hand-scale' as string]: `${fan.scale}`,
+      }}
+    >
       {inspected && (
         <div className="card-inspect" aria-hidden="true">
           <div className="card-inspect-card">
@@ -1155,7 +1198,8 @@ function Hand(props: {
           className="hand-slot"
           style={{
             ['--fan' as string]: `${(i - (n - 1) / 2) * Math.min(8, 40 / Math.max(n, 1))}deg`,
-            ['--lift' as string]: `${Math.abs(i - (n - 1) / 2) * 7}px`,
+            // gentler arc as the hand grows, so edge cards never ride up off-screen
+            ['--lift' as string]: `${Math.abs(i - (n - 1) / 2) * Math.min(7, 56 / Math.max(n, 1))}px`,
           }}
           onMouseEnter={() => beginInspect(card.id)}
         >
