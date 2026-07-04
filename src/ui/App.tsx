@@ -592,7 +592,7 @@ export function App() {
                   {p.isBot && session.removeBot && (
                     <button
                       className="ink-bot-dismiss"
-                      onClick={() => session.removeBot!(p.seat)}
+                      onClick={() => session.removeBot!(p.seat, p.name)}
                       title={`Dismiss ${p.name}`}
                       aria-label={`Dismiss bot ${p.name}`}
                     >

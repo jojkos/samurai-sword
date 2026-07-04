@@ -190,6 +190,28 @@ describe('bots', () => {
     expect(ev.lastLobby()[1].isBot).toBe(true)
   })
 
+  it("rejects a guest claiming the reserved 'bot:' token prefix", () => {
+    const { peer, ev } = makeHost()
+    const sneak = join(peer, 'Sneak', 'bot:stolen')
+    expect(sentOfType(sneak, 'rejected')[0]).toMatchObject({
+      reason: expect.stringContaining('token'),
+    })
+    expect(ev.lastLobby()).toHaveLength(1)
+  })
+
+  it('removeBot ignores a stale seat whose name no longer matches', () => {
+    const { host, ev } = makeHost()
+    host.addBot()
+    host.addBot()
+    const firstBot = ev.lastLobby()[1].name
+    const secondBot = ev.lastLobby()[2].name
+    // the click aimed at seat 1 but carried the OTHER bot's name — seats shifted
+    host.removeBot(1, secondBot)
+    expect(ev.lastLobby()).toHaveLength(3) // nothing dismissed
+    host.removeBot(1, firstBot)
+    expect(ev.lastLobby().map((p) => p.name)).not.toContain(firstBot)
+  })
+
   it('removeBot never evicts a human seat', () => {
     const { host, peer, ev } = makeHost()
     join(peer, 'Aya', 't-aya')

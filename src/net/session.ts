@@ -25,9 +25,9 @@ export interface Session {
   startGame?(): void
   /** host only: deal a fresh game with the same players */
   playAgain?(): void
-  /** host only, pre-game: seat a bot / dismiss a bot */
+  /** host only, pre-game: seat a bot / dismiss a bot (name guards seat shifts) */
   addBot?(): void
-  removeBot?(seat: number): void
+  removeBot?(seat: number, name?: string): void
   close(): void
 }
 
@@ -153,8 +153,9 @@ export class HostSession implements Session {
     this.conns = this.roster.tokens.map(() => null)
     this.peer = this.createPeer()
     this.save()
-    // a resumed game may already be waiting on a bot — pick the duel back up
-    this.scheduleBots()
+    // bots start only once the peer ID is confirmed ours (see createPeer's
+    // 'open') — otherwise a second tab resuming the same save would fork the
+    // game and clobber it while the broker still rejects its identity
   }
 
   private createPeer(): Peer {
@@ -163,6 +164,8 @@ export class HostSession implements Session {
       this.idRetries = 0
       this.pushLobby()
       if (this.state) this.pushViews()
+      // identity confirmed — a resumed game may be waiting on a bot
+      this.scheduleBots()
     })
     peer.on('connection', (conn) => this.onConnection(conn))
     peer.on('error', (err: Error & { type?: string }) => {
@@ -217,6 +220,12 @@ export class HostSession implements Session {
   }
 
   private handleHello(conn: DataConnection, msg: { name: string; token: string }) {
+    // the 'bot:' prefix is reserved — a guest claiming it would get its seat
+    // auto-played by the host's bot driver
+    if (isBotToken(msg.token)) {
+      conn.send({ t: 'rejected', reason: 'Invalid session token.' } satisfies HostMsg)
+      return
+    }
     let seat = this.roster.tokens.indexOf(msg.token)
     if (seat < 0) {
       if (this.state) {
@@ -332,9 +341,12 @@ export class HostSession implements Session {
     this.pushLobby()
   }
 
-  removeBot(seat: number) {
+  removeBot(seat: number, name?: string) {
     if (this.state) return
     if (!isBotToken(this.roster.tokens[seat] ?? '')) return
+    // seats shift when someone leaves — a stale click must not dismiss a
+    // DIFFERENT bot than the one whose × was pressed
+    if (name != null && this.roster.names[seat] !== name) return
     this.dropSeat(seat)
     this.pushLobby()
   }
