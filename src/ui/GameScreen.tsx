@@ -52,6 +52,8 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
   const floaterTimers = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => () => floaterTimers.current.forEach(clearTimeout), [])
   const [turnFlash, setTurnFlash] = useState(0)
+  // whose turn began (someone else's) — announced so turn changes never slip by
+  const [turnAnnounce, setTurnAnnounce] = useState<{ n: number; name: string } | null>(null)
   // fresh games have a near-empty log; a mid-game rejoin must not replay the ceremony
   const [ceremony, setCeremony] = useState(() => view.log.length < 8)
   const touch = useTouchDevice()
@@ -79,6 +81,10 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
     if (view.phase === 'play' && view.turnSeat === view.seat && prev.turnSeat !== view.seat) {
       sound.yourTurn()
       setTurnFlash((n) => n + 1)
+    }
+    // someone else's turn began — say so, out loud, for everyone at the table
+    if (view.phase === 'play' && view.turnSeat !== view.seat && prev.turnSeat !== view.turnSeat) {
+      setTurnAnnounce((old) => ({ n: (old?.n ?? 0) + 1, name: view.players[view.turnSeat].name }))
     }
     if (view.result && !prev.result) sound.victory()
     if (prev.result && !view.result) setCeremony(true) // "Play again" dealt new roles
@@ -331,6 +337,11 @@ export function GameScreen(props: { view: PlayerView; session: Session; onLeave:
       {turnFlash > 0 && (
         <div key={turnFlash} className="turn-banner" aria-hidden="true">
           Your turn<span className="turn-banner-kanji">出番</span>
+        </div>
+      )}
+      {turnAnnounce && (
+        <div key={`o${turnAnnounce.n}`} className="turn-banner turn-banner-other" aria-hidden="true">
+          {turnAnnounce.name}'s turn<span className="turn-banner-kanji">番</span>
         </div>
       )}
 

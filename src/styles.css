@@ -1322,6 +1322,17 @@ body {
   70% { opacity: 0.8; }
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); }
 }
+/* someone else's turn — quieter than your own gold stamp, but never missable */
+.turn-banner-other {
+  top: 29%;
+  font-size: 1.25rem;
+  letter-spacing: 0.12em;
+  color: var(--washi);
+  text-shadow: 0 0 18px rgba(0, 0, 0, 0.9), 0 2px 8px rgba(0, 0, 0, 0.8);
+  animation-duration: 1.45s;
+}
+.turn-banner-other .turn-banner-kanji { color: var(--gold-bright); }
+.turn-banner-other::before { width: 240px; height: 80px; background: radial-gradient(closest-side, rgba(12, 7, 4, 0.55), transparent 70%); }
 
 /* newly lost tokens flash so the loss is unmissable */
 .token-lost { animation: token-lose 650ms var(--ease-out); }
@@ -3338,4 +3349,55 @@ body {
   .ink-pace-chip { min-height: 44px; }
   .ink-connecting { padding: 1.6rem 1.1rem; }
   .ink-torii-scene { width: min(240px, 68vw); }
+}
+
+/* ---------- phones held sideways — a short, wide viewport ----------
+   Width-keyed phone rules miss landscape (a phone on its side is 700–900px
+   wide), so the duel gets its own height-keyed layout: a wider, flatter
+   table, a smaller fan, and HUD pulled into the corners. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .table-scene { inset: 0 0 60px 0; }
+  .table { width: min(86vw, 980px); height: min(72vh, 330px); top: 50%; }
+  .table-inner::after { font-size: 2.2rem; }
+  .table-center { gap: 10px; }
+
+  .seat { min-width: 82px; max-width: 108px; padding: 3px 5px; }
+  .seat-name { font-size: 0.74rem; }
+  .char-kanji { font-size: 0.85rem; }
+  .char-name { font-size: 0.62rem; }
+  .token { width: 10px; height: 10px; }
+  .token-honor { width: 8px; height: 8px; }
+  .seat-handcount { font-size: 0.66rem; margin-top: 1px; }
+  .seat-handcount .card { width: 13px; height: 18px; }
+  .seat-role-badge { font-size: 0.5rem; line-height: 1.7; }
+  .card-mini { width: 30px; height: 42px; }
+  .pile-empty { width: 30px; height: 42px; }
+  .seat-turn::before { top: -24px; font-size: 0.7rem; }
+
+  /* compose with the JS width-fit: shrink the whole fan for the short screen */
+  .hand { bottom: 0; padding-bottom: 2px; transform: translateX(-50%) scale(calc(var(--hand-scale, 1) * 0.72)); }
+  .card-inspect { display: none; } /* no room above the fan for the hover sheet */
+
+  .statusbar { top: 6px; left: 6px; gap: 6px; row-gap: 3px; flex-wrap: wrap; max-width: calc(100vw - 220px); }
+  .role-badge { font-size: 0.75rem; padding: 0.3em 0.75em; }
+  .turn-indicator { font-size: 0.78rem; }
+  .weapons-left { display: none; }
+  .log { top: 6px; right: 6px; width: 190px; }
+  .log-entries { max-height: 42vh; font-size: 0.78rem; }
+  .waiting-banner { top: 42px; font-size: 0.8rem; }
+  .turn-banner { font-size: 1.35rem; }
+  .turn-banner-other { font-size: 1rem; }
+
+  .controls { right: 8px; bottom: 8px; gap: 4px; }
+  .controls .ink-seal { min-height: 42px; min-width: 104px; }
+  .controls .ink-seal .ink-seal-text { font-size: 0.85rem; }
+
+  /* full-screen sheets breathe with the short viewport and scroll inside */
+  .modal { max-height: 92vh; padding: 1rem 1.2rem; }
+  .ceremony { overflow-y: auto; }
+  .ceremony-inner { padding: 0.9rem 1.2rem; }
+  .ceremony-kanji { font-size: 2.6rem; }
+  .inspect-sheet { max-height: 96vh; overflow-y: auto; gap: 12px; }
+  .inspect-card { width: 145px; height: 209px; }
+  .inspect-card .card { transform: scale(1.45); }
 }
