@@ -3250,6 +3250,35 @@ body {
 /* begin CTA — the vermilion hanko, stamped promptly (not on home's 2.2s cue) */
 .ink-begin-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 0.1rem; }
 .ink-begin { width: auto; min-width: 230px; align-self: center; animation-delay: 0.45s; }
+
+/* pace of the duel — three brushed paper tags; the chosen one is inked in */
+.ink-pace { display: flex; align-items: center; gap: 8px; }
+.ink-pace-label {
+  font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(74, 66, 56, 0.65); margin-right: 2px;
+}
+.ink-pace-chip {
+  display: flex; align-items: baseline; gap: 6px;
+  font-family: inherit; font-size: 0.88rem; letter-spacing: 0.03em;
+  padding: 0.34em 0.85em; min-height: 40px; align-items: center;
+  border: 1px solid rgba(38, 33, 26, 0.35);
+  border-radius: 3px 10px 4px 11px; /* hand-cut, kin to the hanko corners */
+  background: rgba(247, 240, 224, 0.55);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease-out), background 0.15s var(--ease-out);
+}
+.ink-pace-chip:hover { border-color: rgba(143, 29, 44, 0.55); }
+.ink-pace-kanji { font-family: var(--font-kanji); font-size: 1.02rem; line-height: 1; }
+.ink-pace-sub { font-size: 0.68rem; opacity: 0.75; }
+.ink-pace-active {
+  background: rgba(143, 29, 44, 0.12);
+  border-color: rgba(143, 29, 44, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(143, 29, 44, 0.35);
+  color: var(--ink);
+}
+.ink-pace-active .ink-pace-kanji { color: var(--crimson); }
+.ink-pace-chip:focus-visible { outline: 2px solid rgba(143, 29, 44, 0.8); outline-offset: 2px; }
 /* hint / waiting text sits on the open painting — give it a washi pill so it
    reads cleanly over the torn ink ridges instead of fighting them */
 .ink-begin-hint, .ink-waiting {
@@ -3305,6 +3334,8 @@ body {
   .ink-seats { grid-template-columns: 1fr; gap: 7px; }
   .ink-seat { min-height: 2.5em; }
   .ink-begin { width: 100%; min-width: 0; max-width: 320px; }
+  .ink-pace { flex-wrap: wrap; justify-content: center; row-gap: 6px; }
+  .ink-pace-chip { min-height: 44px; }
   .ink-connecting { padding: 1.6rem 1.1rem; }
   .ink-torii-scene { width: min(240px, 68vw); }
 }

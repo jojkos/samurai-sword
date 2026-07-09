@@ -20,6 +20,13 @@ type Screen =
   | { s: 'lobby'; players: LobbyPlayer[]; code: string; seat: number }
   | { s: 'game' }
 
+/** Pace of the duel — a Resilience cap makes for shorter, deadlier games. */
+const PACES: { cap: number | null; kanji: string; label: string; sub: string; title: string }[] = [
+  { cap: null, kanji: '常', label: 'full', sub: '4–5 ♥', title: 'Every warrior fights with full Resilience' },
+  { cap: 3, kanji: '疾', label: 'swift', sub: '3 ♥', title: 'Resilience capped at 3 — a faster duel' },
+  { cap: 2, kanji: '雷', label: 'lightning', sub: '2 ♥', title: 'Resilience capped at 2 — blink and it is over' },
+]
+
 export function App() {
   const [screen, setScreen] = useState<Screen>({ s: 'home' })
   const [view, setView] = useState<PlayerView | null>(null)
@@ -66,6 +73,8 @@ export function App() {
   }
   // transient "copied" confirmation on the lobby's copy-link button
   const [copied, setCopied] = useState(false)
+  // host's chosen pace: max-Resilience cap for faster duels (null = full)
+  const [pace, setPace] = useState<number | null>(null)
   const copyTimer = useRef<number | null>(null)
   // one-shot dusk veil that falls when the daylight lobby gives way to the night duel
   const [duskFall, setDuskFall] = useState(false)
@@ -683,10 +692,28 @@ export function App() {
 
           {session.startGame ? (
             <div className="ink-begin-wrap">
+              {/* the pace of the duel — full resilience, or capped for a faster game */}
+              <div className="ink-pace" role="radiogroup" aria-label="Pace of the duel">
+                <span className="ink-pace-label">pace</span>
+                {PACES.map((p) => (
+                  <button
+                    key={p.label}
+                    className={`ink-pace-chip ${pace === p.cap ? 'ink-pace-active' : ''}`}
+                    role="radio"
+                    aria-checked={pace === p.cap}
+                    title={p.title}
+                    onClick={() => setPace(p.cap)}
+                  >
+                    <span className="ink-pace-kanji" aria-hidden="true">{p.kanji}</span>
+                    {p.label}
+                    <span className="ink-pace-sub">{p.sub}</span>
+                  </button>
+                ))}
+              </div>
               <button
                 className="ink-seal ink-seal-vermilion ink-begin"
                 disabled={screen.players.length < 3}
-                onClick={() => session.startGame!()}
+                onClick={() => session.startGame!({ resilienceCap: pace })}
               >
                 <span className="ink-seal-kanji" aria-hidden="true">討</span>
                 <span className="ink-seal-text">Begin the duel</span>

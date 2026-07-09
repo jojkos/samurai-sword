@@ -21,6 +21,14 @@ function fail(msg: string): never {
 export interface GameConfig {
   names: string[]
   seed: number
+  /** faster duels: cap everyone's max Resilience (null/undefined = full) */
+  resilienceCap?: number | null
+}
+
+/** A character's max Resilience under the game's pace cap. */
+export function maxResilienceOf(state: Pick<GameState, 'resilienceCap'>, character: keyof typeof CHARACTERS): number {
+  const full = CHARACTERS[character].resilience
+  return state.resilienceCap != null ? Math.min(full, state.resilienceCap) : full
 }
 
 export function createGame(config: GameConfig): GameState {
@@ -46,6 +54,10 @@ export function createGame(config: GameConfig): GameState {
   rng = sh4.state
   const deck = sh4.arr
 
+  // pace: a cap below 2 would break Nobunaga/recovery loops; clamp to sanity
+  const resilienceCap =
+    config.resilienceCap != null ? Math.max(2, Math.min(5, config.resilienceCap | 0)) : null
+
   const players: PlayerState[] = config.names.map((name, seat) => {
     const role = sh2.arr[seat]
     const character = sh3.arr[seat]
@@ -58,7 +70,7 @@ export function createGame(config: GameConfig): GameState {
       name,
       role,
       character,
-      resilience: CHARACTERS[character].resilience,
+      resilience: maxResilienceOf({ resilienceCap }, character),
       honor: baseHonor,
       hand: [],
       properties: [],
@@ -89,8 +101,12 @@ export function createGame(config: GameConfig): GameState {
     result: null,
     turnCount: 1,
     friendlyEndTeam: null,
+    resilienceCap,
   }
   log(state, `The game begins — ${players[shogunSeat].name} is the Shogun.`)
+  if (resilienceCap != null) {
+    log(state, `A swift duel — everyone's Resilience is capped at ${resilienceCap}.`)
+  }
   // Shogun's first turn: full resilience, no bushido possible; draw phase.
   beginDrawPhase(state)
   return state
@@ -356,7 +372,7 @@ function startNextTurn(state: GameState) {
 
   // 1. Recover
   if (p.resilience === 0) {
-    p.resilience = CHARACTERS[p.character].resilience
+    p.resilience = maxResilienceOf(state, p.character)
     log(state, `${p.name} recovers all Resilience.`)
   }
 
@@ -710,7 +726,7 @@ function playAction(
       const other = player(state, intent.target)
       removeFromHand(p, card.id)
       state.discard.push(card)
-      p.resilience = CHARACTERS[p.character].resilience
+      p.resilience = maxResilienceOf(state, p.character)
       log(state, `${p.name} plays Breathing and recovers all Resilience.`)
       draw(state, other.seat, 1)
       break

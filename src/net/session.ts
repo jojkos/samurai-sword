@@ -17,13 +17,18 @@ export interface SessionEvents {
   onDead: (reason: string) => void
 }
 
+export interface StartOptions {
+  /** faster duels: cap everyone's max Resilience (null/undefined = full) */
+  resilienceCap?: number | null
+}
+
 export interface Session {
   readonly code: string
   readonly seat: number
   sendIntent(intent: Intent): void
   /** host only */
-  startGame?(): void
-  /** host only: deal a fresh game with the same players */
+  startGame?(options?: StartOptions): void
+  /** host only: deal a fresh game with the same players (and the same pace) */
   playAgain?(): void
   /** host only, pre-game: seat a bot / dismiss a bot (name guards seat shifts) */
   addBot?(): void
@@ -389,11 +394,12 @@ export class HostSession implements Session {
 
   playAgain() {
     if (!this.state?.result) return
+    const pace = this.state.resilienceCap
     this.state = null
-    this.startGame()
+    this.startGame({ resilienceCap: pace })
   }
 
-  startGame() {
+  startGame(options?: StartOptions) {
     if (this.state) return
     // ghosts — joined then vanished pre-game — must not be dealt into the game
     // (bot seats have no connection by design and always stay)
@@ -412,6 +418,7 @@ export class HostSession implements Session {
     this.state = createGame({
       names: this.roster.names,
       seed: (Math.random() * 0x7fffffff) | 0,
+      resilienceCap: options?.resilienceCap ?? null,
     })
     this.save()
     this.pushViews()

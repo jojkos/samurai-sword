@@ -1,5 +1,5 @@
-import { CHARACTERS, ROLES } from './cards'
-import { isHarmless, weaponsAllowed } from './game'
+import { ROLES } from './cards'
+import { isHarmless, maxResilienceOf, weaponsAllowed } from './game'
 import type { GameState, PlayerView, PublicPlayer } from './types'
 
 /** Build the redacted view for one seat. Never leaks other hands or secret roles. */
@@ -12,7 +12,7 @@ export function viewFor(state: GameState, seat: number): PlayerView {
     seat: p.seat,
     name: p.name,
     character: p.character,
-    maxResilience: CHARACTERS[p.character].resilience,
+    maxResilience: maxResilienceOf(state, p.character),
     resilience: p.resilience,
     honor: p.honor,
     handCount: p.hand.length,
@@ -45,5 +45,6 @@ export function viewFor(state: GameState, seat: number): PlayerView {
     waitingFor: respondent !== null && respondent !== seat ? respondent : null,
     log: state.log,
     result: state.result,
+    resilienceCap: state.resilienceCap ?? null, // pre-pace host saves lack the field
   }
 }
