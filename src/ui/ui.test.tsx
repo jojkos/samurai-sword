@@ -55,7 +55,7 @@ function mkView(overrides: Partial<PlayerView> = {}): PlayerView {
     waitingFor: null,
     log: [{ n: 1, text: 'The game begins.' }],
     result: null,
-    resilienceCap: null,
+    honorCap: null,
     ...overrides,
   }
 }

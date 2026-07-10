@@ -139,8 +139,8 @@ export interface GameState {
   turnCount: number
   /** set when a defeat was dealt by a teammate and ended the game */
   friendlyEndTeam: Team | null
-  /** faster duels: everyone's max Resilience is capped at this (null = full) */
-  resilienceCap: number | null
+  /** faster duels: everyone's starting Honor is capped at this (null = full) */
+  honorCap: number | null
 }
 
 // ---------- Intents (what a seat asks the engine to do) ----------
@@ -191,6 +191,6 @@ export interface PlayerView {
   waitingFor: number | null
   log: LogEntry[]
   result: GameResult | null
-  /** the room's pace: max Resilience cap chosen by the host (null = full) */
-  resilienceCap: number | null
+  /** the room's pace: starting Honor cap chosen by the host (null = full) */
+  honorCap: number | null
 }

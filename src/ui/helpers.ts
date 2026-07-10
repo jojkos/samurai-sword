@@ -47,9 +47,10 @@ export const HIDDEN_ROLE_TEXT =
 export function baseHonor(view: PlayerView, seat: number): number {
   const isShogun =
     seat === view.seat ? view.you.role === 'shogun' : view.players[seat].role === 'shogun'
-  if (view.playerCount === 3) return isShogun ? 6 : 3
-  if (isShogun) return 5
-  return view.playerCount <= 5 ? 3 : 4
+  const full =
+    view.playerCount === 3 ? (isShogun ? 6 : 3) : isShogun ? 5 : view.playerCount <= 5 ? 3 : 4
+  // a swift/lightning duel caps the starting Honor, so the token track shrinks too
+  return view.honorCap != null ? Math.min(full, view.honorCap) : full
 }
 
 /** Weapon stats spelled out in plain language for the inspect panel. */

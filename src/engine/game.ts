@@ -21,14 +21,13 @@ function fail(msg: string): never {
 export interface GameConfig {
   names: string[]
   seed: number
-  /** faster duels: cap everyone's max Resilience (null/undefined = full) */
-  resilienceCap?: number | null
+  /** faster duels: cap everyone's starting Honor (null/undefined = full) */
+  honorCap?: number | null
 }
 
-/** A character's max Resilience under the game's pace cap. */
-export function maxResilienceOf(state: Pick<GameState, 'resilienceCap'>, character: keyof typeof CHARACTERS): number {
-  const full = CHARACTERS[character].resilience
-  return state.resilienceCap != null ? Math.min(full, state.resilienceCap) : full
+/** Starting Honor under the game's pace cap. */
+export function cappedHonor(base: number, honorCap: number | null | undefined): number {
+  return honorCap != null ? Math.min(base, honorCap) : base
 }
 
 export function createGame(config: GameConfig): GameState {
@@ -54,9 +53,10 @@ export function createGame(config: GameConfig): GameState {
   rng = sh4.state
   const deck = sh4.arr
 
-  // pace: a cap below 2 would break Nobunaga/recovery loops; clamp to sanity
-  const resilienceCap =
-    config.resilienceCap != null ? Math.max(2, Math.min(5, config.resilienceCap | 0)) : null
+  // pace: a starting Honor below 2 would be defeat on the first hit; clamp to
+  // 2–6 (6 = the highest natural start, the 3-player Shogun) so `full` is a no-op
+  const honorCap =
+    config.honorCap != null ? Math.max(2, Math.min(6, config.honorCap | 0)) : null
 
   const players: PlayerState[] = config.names.map((name, seat) => {
     const role = sh2.arr[seat]
@@ -70,8 +70,8 @@ export function createGame(config: GameConfig): GameState {
       name,
       role,
       character,
-      resilience: maxResilienceOf({ resilienceCap }, character),
-      honor: baseHonor,
+      resilience: CHARACTERS[character].resilience,
+      honor: cappedHonor(baseHonor, honorCap),
       hand: [],
       properties: [],
     }
@@ -101,11 +101,11 @@ export function createGame(config: GameConfig): GameState {
     result: null,
     turnCount: 1,
     friendlyEndTeam: null,
-    resilienceCap,
+    honorCap,
   }
   log(state, `The game begins — ${players[shogunSeat].name} is the Shogun.`)
-  if (resilienceCap != null) {
-    log(state, `A swift duel — everyone's Resilience is capped at ${resilienceCap}.`)
+  if (honorCap != null) {
+    log(state, `A swift duel — everyone's Honor is capped at ${honorCap}.`)
   }
   // Shogun's first turn: full resilience, no bushido possible; draw phase.
   beginDrawPhase(state)
@@ -372,7 +372,7 @@ function startNextTurn(state: GameState) {
 
   // 1. Recover
   if (p.resilience === 0) {
-    p.resilience = maxResilienceOf(state, p.character)
+    p.resilience = CHARACTERS[p.character].resilience
     log(state, `${p.name} recovers all Resilience.`)
   }
 
@@ -726,7 +726,7 @@ function playAction(
       const other = player(state, intent.target)
       removeFromHand(p, card.id)
       state.discard.push(card)
-      p.resilience = maxResilienceOf(state, p.character)
+      p.resilience = CHARACTERS[p.character].resilience
       log(state, `${p.name} plays Breathing and recovers all Resilience.`)
       draw(state, other.seat, 1)
       break

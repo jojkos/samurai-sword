@@ -172,4 +172,12 @@ describe('baseHonor', () => {
     expect(baseHonor(mk(7, 0), 2)).toBe(4)
     expect(baseHonor(mk(3, 1), 2)).toBe(3)
   })
+
+  it('a honorCap shrinks the token track (so it never shows empty slots)', () => {
+    const capped = (playerCount: number, shogunSeat: number, cap: number): PlayerView =>
+      ({ ...mk(playerCount, shogunSeat), honorCap: cap }) as PlayerView
+    expect(baseHonor(capped(3, 1, 2), 1)).toBe(2) // 3p shogun 6 → 2
+    expect(baseHonor(capped(6, 0, 3), 2)).toBe(3) // 6p others 4 → 3
+    expect(baseHonor(capped(5, 0, 3), 2)).toBe(3) // already 3, unchanged
+  })
 })

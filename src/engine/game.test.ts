@@ -49,7 +49,7 @@ function mkState(seats: SeatSpec[], opts: { deck?: Card[]; discard?: Card[]; tur
     result: null,
     turnCount: 1,
     friendlyEndTeam: null,
-    resilienceCap: null,
+    honorCap: null,
   }
 }
 
@@ -112,54 +112,38 @@ describe('createGame', () => {
   })
 })
 
-// ---------- pace (resilience cap) ----------
+// ---------- pace (honor cap) ----------
 
-describe('pace: resilience cap', () => {
-  it('caps starting resilience and the view max; full game leaves both untouched', () => {
-    const fast = createGame({ names: ['a', 'b', 'c', 'd'], seed: 11, resilienceCap: 3 })
-    expect(fast.resilienceCap).toBe(3)
+describe('pace: honor cap', () => {
+  it('caps starting Honor (shogun included); leaves Resilience alone', () => {
+    const fast = createGame({ names: ['a', 'b', 'c', 'd'], seed: 11, honorCap: 3 })
+    expect(fast.honorCap).toBe(3)
     for (const p of fast.players) {
-      expect(p.resilience).toBe(3) // every character has 4–5 natively
-      expect(viewFor(fast, 0).players[p.seat].maxResilience).toBe(3)
-    }
-    expect(viewFor(fast, 0).resilienceCap).toBe(3)
-
-    const full = createGame({ names: ['a', 'b', 'c', 'd'], seed: 11 })
-    expect(full.resilienceCap).toBeNull()
-    for (const p of full.players) {
+      expect(p.honor).toBeLessThanOrEqual(3)
+      // resilience is untouched by the honor cap
       expect(p.resilience).toBe(CHARACTERS[p.character].resilience)
+      expect(viewFor(fast, 0).players[p.seat].maxResilience).toBe(CHARACTERS[p.character].resilience)
     }
-    expect(viewFor(full, 0).resilienceCap).toBeNull()
+    // the shogun's 5 is pulled down to the cap
+    expect(fast.players.find((p) => p.role === 'shogun')!.honor).toBe(3)
+    expect(viewFor(fast, 0).honorCap).toBe(3)
   })
 
-  it('clamps silly caps into the sane 2–5 range', () => {
-    const g = createGame({ names: ['a', 'b', 'c'], seed: 1, resilienceCap: 1 })
-    expect(g.resilienceCap).toBe(2)
+  it('a lightning cap pulls even the 3-player shogun (6) down to 2', () => {
+    const g = createGame({ names: ['a', 'b', 'c'], seed: 3, honorCap: 2 })
+    for (const p of g.players) expect(p.honor).toBe(2)
   })
 
-  it('turn-start recovery restores to the cap, not the character max', () => {
-    const state = mkState(
-      [{ role: 'shogun' }, { role: 'ninja1', character: 'musashi', resilience: 0, hand: [c('parry')] }, { role: 'ninja2' }],
-      { turnSeat: 0 },
-    )
-    state.resilienceCap = 3
-    const next = applyIntent(state, 0, { t: 'endTurn' })
-    expect(next.players[1].resilience).toBe(3)
+  it('full game leaves Honor at its natural, asymmetric values', () => {
+    const full = createGame({ names: ['a', 'b', 'c', 'd'], seed: 11 })
+    expect(full.honorCap).toBeNull()
+    expect(full.players.find((p) => p.role === 'shogun')!.honor).toBe(5)
+    expect(viewFor(full, 0).honorCap).toBeNull()
   })
 
-  it('Breathing recovers to the cap, not the character max', () => {
-    const breathing = c('breathing')
-    const state = mkState(
-      [
-        { role: 'shogun', character: 'musashi', resilience: 1, hand: [breathing] },
-        { role: 'ninja1' },
-        { role: 'ninja2' },
-      ],
-      { turnSeat: 0 },
-    )
-    state.resilienceCap = 2
-    const next = applyIntent(state, 0, { t: 'playAction', card: breathing.id, target: 1 })
-    expect(next.players[0].resilience).toBe(2)
+  it('clamps silly caps into the sane 2–6 range', () => {
+    expect(createGame({ names: ['a', 'b', 'c'], seed: 1, honorCap: 1 }).honorCap).toBe(2)
+    expect(createGame({ names: ['a', 'b', 'c'], seed: 1, honorCap: 99 }).honorCap).toBe(6)
   })
 })
 

@@ -108,10 +108,14 @@ body {
    direct child of .app styled with a lone class. Every fixed-position direct
    child MUST be excluded here AND re-fixed via an `.app > .x` rule. Prefer
    mounting floating UI inside .game/.home instead of as an .app child. */
-.app > *:not(.scene):not(.ink-scene):not(.sound-toggle):not(.ink-dusk) { position: relative; z-index: 1; }
+.app > *:not(.scene):not(.ink-scene):not(.sound-toggle):not(.ink-dusk):not(.modal-backdrop) { position: relative; z-index: 1; }
 .app > .sound-toggle { position: fixed; }
 .app > .ink-scene { position: fixed; }
 .app > .ink-dusk { position: fixed; }
+/* modals mounted straight under .app (disconnect, Back-confirm) must keep their
+   fixed centered overlay — the high-specificity rule above otherwise forces
+   them to position:relative, dropping them to the top of the scrolling page */
+.app > .modal-backdrop { position: fixed; }
 
 /* ================= embers ================= */
 

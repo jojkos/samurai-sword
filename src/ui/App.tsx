@@ -20,11 +20,12 @@ type Screen =
   | { s: 'lobby'; players: LobbyPlayer[]; code: string; seat: number }
   | { s: 'game' }
 
-/** Pace of the duel — a Resilience cap makes for shorter, deadlier games. */
+/** Pace of the duel — a starting-Honor cap makes for shorter games (Honor is
+ * the yellow ◆ each warrior defends; less of it, sooner someone falls). */
 const PACES: { cap: number | null; kanji: string; label: string; sub: string; title: string }[] = [
-  { cap: null, kanji: '常', label: 'full', sub: '4–5 ♥', title: 'Every warrior fights with full Resilience' },
-  { cap: 3, kanji: '疾', label: 'swift', sub: '3 ♥', title: 'Resilience capped at 3 — a faster duel' },
-  { cap: 2, kanji: '雷', label: 'lightning', sub: '2 ♥', title: 'Resilience capped at 2 — blink and it is over' },
+  { cap: null, kanji: '常', label: 'full', sub: '3–6 ◆', title: 'Everyone keeps their full starting Honor' },
+  { cap: 3, kanji: '疾', label: 'swift', sub: '3 ◆', title: 'Starting Honor capped at 3 — a faster duel' },
+  { cap: 2, kanji: '雷', label: 'lightning', sub: '2 ◆', title: 'Starting Honor capped at 2 — blink and it is over' },
 ]
 
 export function App() {
@@ -713,7 +714,7 @@ export function App() {
               <button
                 className="ink-seal ink-seal-vermilion ink-begin"
                 disabled={screen.players.length < 3}
-                onClick={() => session.startGame!({ resilienceCap: pace })}
+                onClick={() => session.startGame!({ honorCap: pace })}
               >
                 <span className="ink-seal-kanji" aria-hidden="true">討</span>
                 <span className="ink-seal-text">Begin the duel</span>

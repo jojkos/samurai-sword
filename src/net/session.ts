@@ -18,8 +18,8 @@ export interface SessionEvents {
 }
 
 export interface StartOptions {
-  /** faster duels: cap everyone's max Resilience (null/undefined = full) */
-  resilienceCap?: number | null
+  /** faster duels: cap everyone's starting Honor (null/undefined = full) */
+  honorCap?: number | null
 }
 
 export interface Session {
@@ -394,9 +394,9 @@ export class HostSession implements Session {
 
   playAgain() {
     if (!this.state?.result) return
-    const pace = this.state.resilienceCap
+    const pace = this.state.honorCap
     this.state = null
-    this.startGame({ resilienceCap: pace })
+    this.startGame({ honorCap: pace })
   }
 
   startGame(options?: StartOptions) {
@@ -418,7 +418,7 @@ export class HostSession implements Session {
     this.state = createGame({
       names: this.roster.names,
       seed: (Math.random() * 0x7fffffff) | 0,
-      resilienceCap: options?.resilienceCap ?? null,
+      honorCap: options?.honorCap ?? null,
     })
     this.save()
     this.pushViews()

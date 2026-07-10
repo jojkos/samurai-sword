@@ -975,10 +975,10 @@ function RoleCeremony(props: { view: PlayerView; onDone: () => void }) {
             roles are shown openly. Roles are secret from 4 players up.
           </p>
         )}
-        {view.resilienceCap != null && (
+        {view.honorCap != null && (
           <p className="ceremony-note ceremony-pace">
-            {view.resilienceCap <= 2 ? '雷 A lightning duel' : '疾 A swift duel'} — everyone's
-            Resilience is capped at {view.resilienceCap}.
+            {view.honorCap <= 2 ? '雷 A lightning duel' : '疾 A swift duel'} — everyone's
+            starting Honor is capped at {view.honorCap}.
           </p>
         )}
         <div className="ceremony-char">
